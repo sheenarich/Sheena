@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TPT Thumbnail Template — 1080×1080</title>
+
+<!-- Rounded, bold, easy-to-read fonts. Needs internet the first time you open it. -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet" />
+
+<!-- Lets the "Download PNG" buttons save each thumbnail. Needs internet. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+<style>
+/* ==========================================================================
+   1. YOUR BRAND COLORS & FONTS  — change these to re-skin every thumbnail
+   ========================================================================== */
+:root{
+  --blue:   #1e63c8;   /* header band + badges */
+  --blue-2: #12448f;   /* darker blue for depth */
+  --orange: #f28a1c;   /* level band + accents */
+  --purple: #4c1d74;   /* main background */
+  --purple-2:#3a1259;  /* darker purple for depth */
+  --ink:    #21324a;   /* dark text on white */
+  --paper:  #ffffff;   /* cards / worksheet white */
+  --cream:  #f4f7ff;   /* soft card background */
+
+  --font-display: 'Baloo 2', 'Nunito', system-ui, sans-serif; /* big bold headings */
+  --font-body:    'Nunito', system-ui, sans-serif;            /* everything else */
+}
+
+/* ==========================================================================
+   2. PAGE CHROME (only shows on screen — never appears in the exported PNGs)
+   ========================================================================== */
+*{ box-sizing:border-box; }
+body{
+  margin:0; background:#e9edf5; color:var(--ink);
+  font-family:var(--font-body);
+  -webkit-font-smoothing:antialiased;
+}
+.toolbar{
+  position:sticky; top:0; z-index:50;
+  background:#0f1b2d; color:#fff;
+  padding:14px 22px; display:flex; flex-wrap:wrap; gap:14px; align-items:center;
+  box-shadow:0 2px 14px rgba(0,0,0,.25);
+}
+.toolbar h1{ font-size:16px; margin:0; font-weight:800; letter-spacing:.3px; }
+.toolbar .hint{ font-size:13px; opacity:.75; }
+.toolbar button{
+  font-family:var(--font-body); font-weight:800; font-size:14px;
+  border:0; border-radius:10px; padding:10px 16px; cursor:pointer;
+  background:var(--orange); color:#3a1200;
+}
+.toolbar button.ghost{ background:#24344d; color:#fff; }
+.wrap{ max-width:1180px; margin:0 auto; padding:28px 20px 80px; }
+.grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(520px,1fr)); gap:34px; }
+.card-head{ display:flex; justify-content:space-between; align-items:center; margin:0 0 10px; }
+.card-head .label{ font-weight:900; font-size:15px; color:#42506a; letter-spacing:.4px; }
+.card-head button{
+  font-family:var(--font-body); font-weight:800; font-size:13px;
+  border:0; border-radius:8px; padding:8px 14px; cursor:pointer;
+  background:var(--blue); color:#fff;
+}
+
+/* The scaled preview frame. The real slide inside is a true 1080×1080. */
+.stage{ width:100%; aspect-ratio:1/1; overflow:hidden; border-radius:16px;
+        box-shadow:0 14px 34px rgba(20,30,60,.22); background:#fff; }
+.scaler{ transform-origin:top left; }
+
+/* ==========================================================================
+   3. THE THUMBNAIL — a real 1080×1080 canvas. This is what gets exported.
+   ========================================================================== */
+.slide{
+  width:1080px; height:1080px; position:relative; overflow:hidden;
+  background:var(--purple); color:#fff; font-family:var(--font-body);
+}
+/* subtle texture so the purple isn't flat */
+.slide::before{
+  content:""; position:absolute; inset:0;
+  background:
+    radial-gradient(circle at 18% 12%, rgba(255,255,255,.06), transparent 40%),
+    radial-gradient(circle at 85% 90%, rgba(0,0,0,.18), transparent 45%);
+  pointer-events:none;
+}
+
+/* ---- shared header band ---- */
+.hdr{ position:relative; background:var(--blue); padding:60px 70px 46px; }
+.hdr::after{ /* little brand kicker */ }
+.brand{ font-family:var(--font-body); font-weight:900; letter-spacing:2px;
+        font-size:22px; opacity:.9; text-transform:uppercase; margin-bottom:14px; }
+.headline{ font-family:var(--font-display); font-weight:800; line-height:1.02;
+           font-size:92px; margin:0; text-shadow:0 4px 0 rgba(0,0,0,.14); }
+.headline.sm{ font-size:74px; }
+
+/* orange sub-band (level / section name) */
+.band{ background:var(--orange); color:#fff; text-align:center;
+       font-family:var(--font-display); font-weight:800; font-size:52px;
+       padding:20px 30px; text-shadow:0 3px 0 rgba(0,0,0,.12); }
+
+/* ---- COVER: worksheet mockup area ---- */
+.cover-body{ position:relative; padding:56px 70px 70px; height:100%; }
+.mock{
+  position:relative; margin:6px auto 0; width:760px; height:470px;
+  background:#fff; border-radius:14px; color:var(--ink);
+  box-shadow:0 22px 40px rgba(0,0,0,.35); transform:rotate(-2deg);
+  padding:34px 40px; overflow:hidden;
+}
+.mock2{ position:absolute; top:34px; left:70px; width:520px; height:400px;
+        background:#eef2fb; border-radius:12px; transform:rotate(6deg);
+        box-shadow:0 16px 30px rgba(0,0,0,.28); z-index:-1; }
+.mock .m-brand{ font-size:14px; font-weight:900; letter-spacing:1.5px; color:#6b7793; }
+.mock .m-title{ font-family:var(--font-display); font-weight:800; font-size:30px;
+                color:var(--purple); margin:6px 0 4px; }
+.mock .m-sub{ font-size:15px; font-style:italic; color:#7a8598; margin-bottom:18px; }
+.mock .m-row{ display:flex; gap:40px; font-size:22px; font-weight:700; color:#2b3a55;
+              padding:9px 0; border-bottom:1px solid #e6ebf5; }
+.mock .m-row span{ flex:1; }
+
+/* speech-bubble badge */
+.bubble{
+  position:absolute; left:44px; bottom:66px; z-index:5;
+  background:var(--blue); color:#fff; border-radius:22px;
+  padding:22px 28px; font-family:var(--font-display); font-weight:800;
+  font-size:34px; line-height:1.05; text-align:center; max-width:340px;
+  box-shadow:0 12px 24px rgba(0,0,0,.3);
+}
+.bubble::after{ content:""; position:absolute; left:52px; bottom:-18px;
+  border:18px solid transparent; border-top-color:var(--blue); border-bottom:0; }
+
+/* starburst badge */
+.burst{
+  position:absolute; right:34px; bottom:44px; z-index:5;
+  width:270px; height:270px; display:grid; place-items:center; text-align:center;
+  color:#fff; font-family:var(--font-display); font-weight:800; font-size:40px; line-height:1.05;
+  background:var(--blue);
+  clip-path:polygon(50% 0,61% 12%,76% 6%,79% 23%,95% 24%,89% 40%,100% 50%,89% 60%,95% 76%,79% 77%,76% 94%,61% 88%,50% 100%,39% 88%,24% 94%,21% 77%,5% 76%,11% 60%,0 50%,11% 40%,5% 24%,21% 23%,24% 6%,39% 12%);
+  box-shadow:0 12px 24px rgba(0,0,0,.3);
+}
+.burst small{ display:block; font-size:26px; font-weight:700; opacity:.92; }
+
+/* ---- CONTENT SLIDES (What's Included / Details) ---- */
+.content{ padding:52px 66px 60px; }
+.list{ list-style:none; margin:0; padding:0; display:grid; gap:20px; }
+.list li{
+  background:var(--paper); color:var(--ink); border-radius:16px;
+  padding:26px 30px 26px 96px; position:relative;
+  font-size:33px; font-weight:700; line-height:1.2;
+  box-shadow:0 10px 22px rgba(0,0,0,.22);
+}
+.list li::before{
+  content:"✓"; position:absolute; left:26px; top:50%; transform:translateY(-50%);
+  width:46px; height:46px; border-radius:50%; background:var(--orange); color:#fff;
+  display:grid; place-items:center; font-size:28px; font-weight:900;
+}
+/* numbered variant for "How it works" */
+.list.steps li{ counter-increment:step; }
+.list.steps li::before{ content:counter(step); background:var(--blue); }
+.list.steps{ counter-reset:step; }
+
+/* two-column tag grid for "Perfect For" */
+.tags{ display:grid; grid-template-columns:1fr 1fr; gap:22px; margin-top:6px; }
+.tag{ background:var(--paper); color:var(--ink); border-radius:16px;
+      padding:30px 26px; text-align:center; font-size:32px; font-weight:800;
+      box-shadow:0 10px 22px rgba(0,0,0,.22); display:grid; gap:8px; }
+.tag .ico{ font-size:52px; }
+.subhead{ font-family:var(--font-display); font-weight:700; font-size:34px;
+          color:#ffd9a6; text-align:center; margin:0 0 26px; }
+
+/* footer strip */
+.foot{ position:absolute; left:0; right:0; bottom:0; background:var(--purple-2);
+       padding:22px 66px; display:flex; justify-content:space-between; align-items:center;
+       font-weight:900; letter-spacing:1px; font-size:22px; }
+.foot .dot{ color:var(--orange); }
+
+@media (max-width:560px){ .grid{ grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+  <h1>TPT Thumbnail Template</h1>
+  <span class="hint">Edit the <b>CONFIG</b> block at the bottom of this file → save → refresh. Each thumbnail exports at exactly 1080×1080.</span>
+  <button onclick="downloadAll()">⬇ Download all 4 PNGs</button>
+  <button class="ghost" onclick="location.reload()">↻ Refresh</button>
+</div>
+
+<div class="wrap">
+  <div class="grid" id="grid"></div>
+</div>
+
+<script>
+/* ============================================================================
+   4. CONFIG  ← THIS IS THE ONLY PART YOU EDIT FOR A NEW PRODUCT
+   ============================================================================
+   Change the words below and every thumbnail updates. Keep the quotes.
+   Lists can have as many (or few) items as you like.
+============================================================================ */
+const CONFIG = {
+  brand:    "Accessible Academics",
+  title:    "Multiplication Progress Monitoring",
+  level:    "Level 1",
+
+  // Cover mockup — a mini preview of the worksheet inside your product
+  mockTitle: "Skill A Progress Monitor",
+  mockSub:   "Untimed. Solve as many as you can.",
+  mockRows:  [ ["1 × 3 = ___", "1 × 1 = ___"],
+               ["1 × 5 = ___", "1 × 9 = ___"],
+               ["5 × 5 = ___", "2 × 2 = ___"] ],
+
+  // The two badges on the cover
+  bubble:    "Weekly<br>Progress Checks",
+  burstTop:  "Fact",
+  burstMain: "Fluency",
+  burstSub:  "0–12",
+
+  // SLIDE 2 — What's Included
+  included: [
+    "3 leveled versions + answer keys",
+    "10 facts per page, untimed",
+    "Weekly progress-monitor sheets",
+    "Student progress graphing chart",
+    "Covers all facts 0–12",
+    "Print &amp; go — zero prep",
+  ],
+
+  // SLIDE 3 — How It Works (numbered)
+  detailsTitle: "How It Works",
+  steps: [
+    "Pick a skill level for your student",
+    "Student solves 10 facts, untimed",
+    "Score the page out of 10",
+    "Graph the weekly result together",
+  ],
+
+  // SLIDE 4 — Perfect For (icon tiles)
+  perfectTitle: "Perfect For",
+  perfectSub:   "Standards-aligned to 3.OA.C.7",
+  tags: [
+    ["👩‍🏫", "Special Education"],
+    ["📈", "RTI &amp; MTSS Groups"],
+    ["🏠", "Homework &amp; Practice"],
+    ["📝", "Sub Plans &amp; Centers"],
+  ],
+
+  store: "Accessible Academics",
+};
+
+/* ============================================================================
+   5. RENDERING — you normally don't need to touch anything below here
+============================================================================ */
+const rows = CONFIG.mockRows.map(r =>
+  `<div class="m-row"><span>${r[0]}</span><span>${r[1]}</span></div>`).join("");
+
+const SLIDES = [
+  { label:"1 · Main / Cover", html:`
+    <div class="hdr">
+      <div class="brand">${CONFIG.brand}</div>
+      <h2 class="headline">${CONFIG.title}</h2>
+    </div>
+    <div class="band">${CONFIG.level}</div>
+    <div class="cover-body">
+      <div class="mock">
+        <div class="mock2"></div>
+        <div class="m-brand">${CONFIG.brand.toUpperCase()}</div>
+        <div class="m-title">${CONFIG.mockTitle}</div>
+        <div class="m-sub">${CONFIG.mockSub}</div>
+        ${rows}
+      </div>
+      <div class="bubble">${CONFIG.bubble}</div>
+      <div class="burst"><span><small>${CONFIG.burstTop}</small>${CONFIG.burstMain}<small>${CONFIG.burstSub}</small></span></div>
+    </div>` },
+
+  { label:"2 · What's Included", html:`
+    <div class="hdr"><div class="brand">${CONFIG.brand}</div>
+      <h2 class="headline sm">What's Included</h2></div>
+    <div class="content">
+      <ul class="list">${CONFIG.included.map(i=>`<li>${i}</li>`).join("")}</ul>
+    </div>
+    <div class="foot"><span>${CONFIG.title}</span><span class="dot">●</span><span>${CONFIG.store}</span></div>` },
+
+  { label:"3 · More Details", html:`
+    <div class="hdr"><div class="brand">${CONFIG.brand}</div>
+      <h2 class="headline sm">${CONFIG.detailsTitle}</h2></div>
+    <div class="content">
+      <ul class="list steps">${CONFIG.steps.map(i=>`<li>${i}</li>`).join("")}</ul>
+    </div>
+    <div class="foot"><span>${CONFIG.title}</span><span class="dot">●</span><span>${CONFIG.store}</span></div>` },
+
+  { label:"4 · More Details", html:`
+    <div class="hdr"><div class="brand">${CONFIG.brand}</div>
+      <h2 class="headline sm">${CONFIG.perfectTitle}</h2></div>
+    <div class="content">
+      <p class="subhead">${CONFIG.perfectSub}</p>
+      <div class="tags">${CONFIG.tags.map(t=>`<div class="tag"><span class="ico">${t[0]}</span>${t[1]}</div>`).join("")}</div>
+    </div>
+    <div class="foot"><span>${CONFIG.title}</span><span class="dot">●</span><span>${CONFIG.store}</span></div>` },
+];
+
+const grid = document.getElementById("grid");
+SLIDES.forEach((s,i)=>{
+  const card = document.createElement("div");
+  card.innerHTML = `
+    <div class="card-head">
+      <span class="label">${s.label}</span>
+      <button onclick="downloadOne(${i})">⬇ PNG</button>
+    </div>
+    <div class="stage"><div class="scaler"><div class="slide" id="slide${i}">${s.html}</div></div></div>`;
+  grid.appendChild(card);
+});
+
+// Scale each 1080px slide down to fit its preview frame
+function fit(){
+  document.querySelectorAll(".stage").forEach(st=>{
+    const scale = st.clientWidth/1080;
+    st.querySelector(".scaler").style.transform = `scale(${scale})`;
+  });
+}
+window.addEventListener("resize", fit); fit();
+
+async function downloadOne(i){
+  const node = document.getElementById("slide"+i);
+  const canvas = await html2canvas(node, {width:1080, height:1080, scale:1, backgroundColor:null, useCORS:true});
+  const a = document.createElement("a");
+  const name = CONFIG.title.replace(/[^a-z0-9]+/gi,"-").toLowerCase();
+  a.download = `${name}-thumb-${i+1}.png`;
+  a.href = canvas.toDataURL("image/png");
+  a.click();
+}
+async function downloadAll(){ for(let i=0;i<SLIDES.length;i++){ await downloadOne(i); await new Promise(r=>setTimeout(r,400)); } }
+</script>
+</body>
+</html>
