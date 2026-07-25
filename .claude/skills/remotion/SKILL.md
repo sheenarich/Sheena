@@ -148,8 +148,20 @@ npx remotion render src/index.ts MyVideo out/video.mp4 --crf=18   # lower = high
 Render a single still image with `npx remotion still <entry> <id> out/frame.png --frame=42`.
 
 In this environment Chromium is already available under `/opt/pw-browsers`; if
-Remotion can't find a browser, render with
-`--browser-executable=/opt/pw-browsers/chromium` rather than downloading one.
+Remotion can't find a browser, point it at the **headless-shell** binary rather
+than downloading one:
+
+```bash
+npx remotion render src/index.ts MyVideo out/video.mp4 \
+  --browser-executable=/opt/pw-browsers/chromium_headless_shell-1194/chrome-linux/headless_shell
+```
+
+Use the `chromium_headless_shell-*` build, not the full `chromium-*/chrome`
+binary: recent Chrome removed the "old headless" mode Remotion relies on, so the
+full binary fails to launch with `Old Headless mode has been removed`. The
+standalone `headless_shell` is that old-headless implementation and renders
+cleanly. The `-1194` version suffix may differ — glob
+`/opt/pw-browsers/chromium_headless_shell-*/chrome-linux/headless_shell`.
 
 ## Assets, audio, and video
 
