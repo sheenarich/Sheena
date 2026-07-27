@@ -48,6 +48,8 @@ your device.**
 - **Reports** — per-student progress reports (with charts) or a caseload summary,
   ready to **print or save as PDF**.
 - **Backup** — export all your data to a file and import it back (merge or replace).
+- **CSV export** — download progress data, behavior logs, or a students/goals
+  overview as spreadsheet-ready CSV for Excel or Google Sheets.
 
 ## How to use it
 

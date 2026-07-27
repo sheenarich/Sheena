@@ -2208,6 +2208,15 @@ svg.chart { display: block; max-width: 100%; }
 
     html += '</div>';
 
+    // CSV export for spreadsheets
+    html += '<h3 class="section-title">Export to spreadsheet (CSV)</h3>' +
+      '<div class="card"><p class="small muted">Open these in Excel or Google Sheets. Great for sharing data or making your own charts.</p>' +
+      '<div class="flex gap-sm wrap">' +
+      '<button class="btn" data-action="csv-progress">⬇ Progress data</button>' +
+      '<button class="btn" data-action="csv-behavior">⬇ Behavior logs</button>' +
+      '<button class="btn" data-action="csv-students">⬇ Students &amp; goals</button>' +
+      '</div></div>';
+
     // Custom measurement types
     var custom = S.customMeasures();
     html += '<h3 class="section-title">Measurement types</h3><div class="card">' +
@@ -2374,6 +2383,51 @@ svg.chart { display: block; max-width: 100%; }
   }
 
   // ---- Actions --------------------------------------------------------------
+  // ---- CSV export -----------------------------------------------------------
+  function csvCell(v) { return '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"'; }
+  var CSV_BOM = String.fromCharCode(0xFEFF); // helps Excel read UTF-8
+  function csvRows(rows) { return CSV_BOM + rows.map(function (r) { return r.map(csvCell).join(","); }).join("\r\n"); }
+
+  function buildProgressCSV() {
+    var rows = [["Student", "Grade", "Goal area", "Goal", "Measurement", "Date", "Value", "Unit", "Score", "Trials", "Notes"]];
+    S.getStudents().forEach(function (s) {
+      s.goals.forEach(function (g) {
+        var mt = S.measure(g.measurement);
+        S.progressForGoal(g.id).forEach(function (p) {
+          rows.push([fullName(s), s.grade, g.area, g.description, mt.label, p.date, S.valueOf(p, g), mt.unit || "", p.score, p.total, p.notes]);
+        });
+      });
+    });
+    return csvRows(rows);
+  }
+
+  function buildBehaviorCSV() {
+    var rows = [["Student", "Date", "Time", "Type", "Setting", "Antecedent", "Behavior", "Consequence", "Intensity", "Duration (min)", "Count", "Intervals observed", "Intervals occurred", "Notes"]];
+    S.allBehaviors().slice().reverse().forEach(function (b) {
+      var s = S.getStudent(b.studentId);
+      rows.push([s ? fullName(s) : "", b.date, b.time, behaviorTypeShort(b.type || "abc"), b.setting, b.antecedent, b.behavior, b.consequence, b.intensity, b.durationMin, b.count, b.intervalsObserved, b.intervalsOccurred, b.notes]);
+    });
+    return csvRows(rows);
+  }
+
+  function buildStudentsCSV() {
+    var rows = [["Student", "Grade", "Disability", "Case manager", "Annual review", "Re-evaluation", "Goal area", "Goal", "Baseline", "Measurement", "Target", "Status", "Data points", "Latest value"]];
+    S.getStudents().forEach(function (s) {
+      if (!s.goals.length) {
+        rows.push([fullName(s), s.grade, s.disability, s.caseManager, s.dates.annualReview, s.dates.reevaluation, "", "", "", "", "", "", 0, ""]);
+        return;
+      }
+      s.goals.forEach(function (g) {
+        var mt = S.measure(g.measurement);
+        var pts = S.progressForGoal(g.id);
+        var latest = pts.length ? S.valueOf(pts[pts.length - 1], g) : "";
+        rows.push([fullName(s), s.grade, s.disability, s.caseManager, s.dates.annualReview, s.dates.reevaluation,
+          g.area, g.description, g.baseline, mt.label, g.target != null ? g.target : "", g.status, pts.length, latest]);
+      });
+    });
+    return csvRows(rows);
+  }
+
   function download(filename, text, mime) {
     var blob = new Blob([text], { type: mime || "application/json" });
     var url = URL.createObjectURL(blob);
@@ -2695,6 +2749,21 @@ svg.chart { display: block; max-width: 100%; }
     "export": function () {
       download("goal-tracker-backup-" + todayISO() + ".json", S.exportJSON());
       toast("Backup downloaded");
+    },
+    "csv-progress": function () {
+      if (!S.allGoals().length) { alert("No goals/data to export yet."); return; }
+      download("progress-data-" + todayISO() + ".csv", buildProgressCSV(), "text/csv;charset=utf-8");
+      toast("Progress CSV downloaded");
+    },
+    "csv-behavior": function () {
+      if (!S.allBehaviors().length) { alert("No behavior logs to export yet."); return; }
+      download("behavior-logs-" + todayISO() + ".csv", buildBehaviorCSV(), "text/csv;charset=utf-8");
+      toast("Behavior CSV downloaded");
+    },
+    "csv-students": function () {
+      if (S.isEmpty()) { alert("No students to export yet."); return; }
+      download("students-goals-" + todayISO() + ".csv", buildStudentsCSV(), "text/csv;charset=utf-8");
+      toast("Students CSV downloaded");
     },
     "import": function (t) {
       var mode = t.getAttribute("data-mode");
