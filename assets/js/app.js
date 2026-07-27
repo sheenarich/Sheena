@@ -457,14 +457,16 @@
       return html + '<div class="card"><p class="muted mb-0">Add a student and at least one goal first.</p></div>';
     }
 
-    // Mode toggle: single vs bulk
+    // Mode toggle: single / bulk / tally
     var mode = state.dataMode || "single";
     html += '<div class="seg no-print mb-2">' +
       '<button class="seg-btn' + (mode === "single" ? " active" : "") + '" data-action="data-mode" data-mode="single">Single entry</button>' +
       '<button class="seg-btn' + (mode === "bulk" ? " active" : "") + '" data-action="data-mode" data-mode="bulk">Bulk / group entry</button>' +
+      '<button class="seg-btn' + (mode === "tally" ? " active" : "") + '" data-action="data-mode" data-mode="tally">Tally counter</button>' +
       '</div>';
 
     if (mode === "bulk") return html + bulkEntryHTML();
+    if (mode === "tally") return html + '<div data-tally-wrap>' + tallyHTML(null, null) + '</div>';
 
     html += '<div class="card" style="max-width:640px">' + dataFormHTML(null, null) + '</div>';
 
@@ -569,6 +571,75 @@
     return html;
   }
 
+  // ---- Tablet tally counter -------------------------------------------------
+  var tally = { correct: 0, incorrect: 0, count: 0 };
+  var tallyLast = null;
+  function currentTallyGoal() {
+    var form = document.querySelector("form.tally");
+    if (!form) return null;
+    return S.getGoal(form.querySelector('[name="tallyStudent"]').value, form.querySelector('[name="tallyGoal"]').value);
+  }
+
+  function tallyHTML(studentId, goalId) {
+    var students = S.getStudents();
+    var studentOpts = students.map(function (s) { return { value: s.id, label: fullName(s) }; });
+    var sid = studentId || (students[0] && students[0].id);
+    var current = S.getStudent(sid);
+    var goalOpts = current ? current.goals.map(function (g) { return { value: g.id, label: g.area + " — " + truncate(g.description, 36) }; }) : [];
+    var gid = goalId || (current && current.goals[0] && current.goals[0].id);
+    var goal = current ? current.goals.filter(function (g) { return g.id === gid; })[0] : null;
+    var isPercent = goal && goal.measurement === "percent";
+    var mt = goal ? S.measure(goal.measurement) : null;
+
+    var html = '<form class="tally" onsubmit="return false">' +
+      '<div class="card mb-2"><div class="form-grid">' +
+      '<label class="field"><span>Student</span><select name="tallyStudent" data-action="tally-student">' + options(studentOpts, sid) + '</select></label>' +
+      '<label class="field"><span>Goal</span><select name="tallyGoal" data-action="tally-goal">' + options(goalOpts, gid) + '</select></label>' +
+      '<label class="field"><span>Date</span><input type="date" name="tallyDate" value="' + todayISO() + '" /></label>' +
+      '</div>';
+
+    if (!goal) {
+      html += '<p class="muted mb-0">Add a goal for this student first.</p></div></form>';
+      return html;
+    }
+
+    if (isPercent) {
+      var total = tally.correct + tally.incorrect;
+      var pct = total ? Math.round((tally.correct / total) * 100) : 0;
+      html += '<div class="tally-display"><div class="tally-big" id="tally-pct">' + pct + '%</div>' +
+        '<div class="muted">≈ <span id="tally-count">' + tally.correct + '</span> correct of <span id="tally-total">' + total + '</span> trials</div></div>' +
+        '<div class="tally-buttons"><button type="button" class="tally-btn correct" data-action="tally-inc" data-kind="correct">✓ Correct</button>' +
+        '<button type="button" class="tally-btn incorrect" data-action="tally-inc" data-kind="incorrect">✗ Incorrect</button></div>';
+    } else {
+      html += '<div class="tally-display"><div class="tally-big" id="tally-count">' + tally.count + '</div>' +
+        '<div class="muted">' + esc(mt.label) + '</div></div>' +
+        '<div class="tally-buttons"><button type="button" class="tally-btn count" data-action="tally-inc" data-kind="count">＋ 1</button></div>';
+    }
+
+    html += '<div class="flex gap-sm wrap mt-2" style="justify-content:center">' +
+      '<button type="button" class="btn" data-action="tally-undo" data-kind="' + (isPercent ? "correct" : "count") + '">↶ Undo</button>' +
+      '<button type="button" class="btn" data-action="tally-reset">Reset</button>' +
+      '<button type="button" class="btn primary" data-action="tally-save">Save as data point</button>' +
+      '</div>' +
+      '<p class="tiny muted mt-2 mb-0" style="text-align:center">Tap during the lesson, then Save. Great on a tablet.</p>' +
+      '</div></form>';
+    return html;
+  }
+
+  function updateTallyDisplay(isPercent) {
+    if (isPercent) {
+      var total = tally.correct + tally.incorrect;
+      var pct = total ? Math.round((tally.correct / total) * 100) : 0;
+      var e;
+      if ((e = document.getElementById("tally-pct"))) e.textContent = pct + "%";
+      if ((e = document.getElementById("tally-count"))) e.textContent = tally.correct;
+      if ((e = document.getElementById("tally-total"))) e.textContent = total;
+    } else {
+      var c = document.getElementById("tally-count");
+      if (c) c.textContent = tally.count;
+    }
+  }
+
   // Score inputs depend on measurement type.
   function scoreInputsHTML(goal) {
     var m = goal ? goal.measurement : "percent";
@@ -603,23 +674,72 @@
     d.setDate(d.getDate() - dow);
     return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
   }
-  // Bucket incidents into weekly counts, filling empty weeks with 0 so the
-  // trend line is honest about quiet periods.
-  function weeklyCounts(list) {
+  var INTENSITY_VAL = { Low: 1, Medium: 2, High: 3 };
+  // Bucket incidents by week and aggregate a metric, filling empty weeks with 0
+  // so the trend line is honest about quiet periods.
+  function weeklyMetric(list, metric) {
     var dated = list.filter(function (b) { return b.date; });
     if (!dated.length) return [];
-    var counts = {};
-    dated.forEach(function (b) { var w = weekStart(b.date); counts[w] = (counts[w] || 0) + 1; });
-    var weeks = Object.keys(counts).sort();
-    var first = weeks[0], last = weeks[weeks.length - 1];
-    var out = [], cur = new Date(first + "T00:00:00"), end = new Date(last + "T00:00:00");
-    var guard = 0;
+    var buckets = {};
+    dated.forEach(function (b) {
+      var w = weekStart(b.date);
+      if (!buckets[w]) buckets[w] = [];
+      buckets[w].push(b);
+    });
+    var weeks = Object.keys(buckets).sort();
+    var out = [], cur = new Date(weeks[0] + "T00:00:00"), end = new Date(weeks[weeks.length - 1] + "T00:00:00"), guard = 0;
     while (cur <= end && guard < 520) {
       var key = cur.getFullYear() + "-" + String(cur.getMonth() + 1).padStart(2, "0") + "-" + String(cur.getDate()).padStart(2, "0");
-      out.push({ date: key, value: counts[key] || 0 });
+      var items = buckets[key] || [];
+      var val = 0;
+      if (metric === "count") {
+        val = items.length;
+      } else if (metric === "duration") {
+        var ds = items.filter(function (b) { return b.durationMin != null; }).map(function (b) { return b.durationMin; });
+        val = ds.length ? Math.round((ds.reduce(function (a, c) { return a + c; }, 0) / ds.length) * 10) / 10 : 0;
+      } else if (metric === "intensity") {
+        var is = items.filter(function (b) { return INTENSITY_VAL[b.intensity]; }).map(function (b) { return INTENSITY_VAL[b.intensity]; });
+        val = is.length ? Math.round((is.reduce(function (a, c) { return a + c; }, 0) / is.length) * 10) / 10 : 0;
+      }
+      out.push({ date: key, value: val });
       cur.setDate(cur.getDate() + 7);
       guard++;
     }
+    return out;
+  }
+
+  // Top N exact-match values of a field (e.g. antecedent, setting).
+  function topCounts(list, field, n, color) {
+    var counts = {};
+    list.forEach(function (b) {
+      var v = (b[field] || "").trim();
+      if (!v) return;
+      counts[v] = (counts[v] || 0) + 1;
+    });
+    return Object.keys(counts)
+      .map(function (k) { return { label: k, value: counts[k], color: color }; })
+      .sort(function (a, b) { return b.value - a.value; })
+      .slice(0, n);
+  }
+
+  // Distribution of incidents across parts of the day (from the time field).
+  function timeOfDayCounts(list) {
+    var buckets = [
+      { label: "Early (before 9)", max: 9, value: 0, color: "#2aa5b5" },
+      { label: "Morning (9–11)", max: 11, value: 0, color: "#3f6fe0" },
+      { label: "Midday (11–1)", max: 13, value: 0, color: "#7c5cd6" },
+      { label: "Afternoon (1–3)", max: 15, value: 0, color: "#d98a1a" },
+      { label: "Late (after 3)", max: 24, value: 0, color: "#d8443c" }
+    ];
+    var unknown = 0;
+    list.forEach(function (b) {
+      if (!b.time) { unknown++; return; }
+      var hr = parseInt((b.time.split(":")[0] || ""), 10);
+      if (isNaN(hr)) { unknown++; return; }
+      for (var i = 0; i < buckets.length; i++) { if (hr < buckets[i].max) { buckets[i].value++; return; } }
+    });
+    var out = buckets.filter(function (b) { return b.value > 0; });
+    if (unknown) out.push({ label: "No time recorded", value: unknown, color: "#98a2b8" });
     return out;
   }
 
@@ -634,20 +754,41 @@
       return html + '<div class="card"><p class="muted mb-0">Add a student first to log behavior.</p></div>';
     }
 
-    // Behavior frequency over time (per week), optionally filtered to a student
+    // Filters shared by the analytics below
     var bStudent = state.behaviorStudent || "";
+    var metric = state.behaviorMetric || "count";
     var trendSource = bStudent ? behaviors.filter(function (b) { return b.studentId === bStudent; }) : behaviors;
-    html += '<div class="card mb-2"><div class="flex-between wrap"><h3 style="margin:0">Incidents over time (weekly)</h3>' +
-      '<select data-action="behavior-student" class="range-select no-print" aria-label="Filter by student">' +
-      options([{ value: "", label: "All students" }].concat(students.map(function (s) { return { value: s.id, label: fullName(s) }; })), bStudent) + '</select></div>';
-    var weekly = weeklyCounts(trendSource);
+
+    var metricOpts = [
+      { value: "count", label: "Incidents (count)" },
+      { value: "duration", label: "Avg duration (min)" },
+      { value: "intensity", label: "Avg intensity (1–3)" }
+    ];
+    var metricLabel = { count: "incidents", duration: "avg minutes", intensity: "avg intensity (Low=1 · High=3)" }[metric];
+
+    html += '<div class="card mb-2"><div class="flex-between wrap" style="gap:8px"><h3 style="margin:0">Trends over time (weekly)</h3>' +
+      '<div class="flex gap-sm wrap no-print">' +
+      '<select data-action="behavior-metric" class="range-select" aria-label="Metric">' + options(metricOpts, metric) + '</select>' +
+      '<select data-action="behavior-student" class="range-select" aria-label="Filter by student">' +
+      options([{ value: "", label: "All students" }].concat(students.map(function (s) { return { value: s.id, label: fullName(s) }; })), bStudent) + '</select></div></div>';
+    var weekly = weeklyMetric(trendSource, metric);
     if (weekly.length) {
-      html += '<div class="chart-wrap mt-1">' + C.lineChart(weekly, null, { unit: "", yMin: 0, integer: true }) + '</div>' +
-        '<p class="tiny muted mb-0">Each point is the number of incidents logged that week' + (bStudent ? " for this student" : " across the caseload") + '.</p>';
+      var wopts = metric === "count" ? { yMin: 0, integer: true } : metric === "intensity" ? { yMin: 0, yMax: 3 } : { yMin: 0 };
+      html += '<div class="chart-wrap mt-1">' + C.lineChart(weekly, null, wopts) + '</div>' +
+        '<p class="tiny muted mb-0">Each point is the ' + metricLabel + ' that week' + (bStudent ? " for this student" : " across the caseload") + '.</p>';
     } else {
       html += '<p class="muted small mb-0 mt-1">No incidents logged yet' + (bStudent ? " for this student" : "") + '.</p>';
     }
     html += '</div>';
+
+    // Pattern analysis — most common triggers, settings, and times of day
+    if (trendSource.length) {
+      html += '<div class="grid cols-3 mb-2">' +
+        '<div class="card"><h3>Top antecedents</h3>' + C.barChart(topCounts(trendSource, "antecedent", 6, "#7c5cd6")) + '</div>' +
+        '<div class="card"><h3>Top settings</h3>' + C.barChart(topCounts(trendSource, "setting", 6, "#3f6fe0")) + '</div>' +
+        '<div class="card"><h3>Time of day</h3>' + C.barChart(timeOfDayCounts(trendSource)) + '</div>' +
+        '</div>';
+    }
 
     // Frequency summary by student
     var counts = {};
@@ -1026,7 +1167,48 @@
       toast("Goal reactivated"); render();
     },
     "toggle-closed": function () { state.showClosed = !state.showClosed; render(); },
-    "data-mode": function (t) { state.dataMode = t.getAttribute("data-mode"); render(); },
+    "data-mode": function (t) {
+      state.dataMode = t.getAttribute("data-mode");
+      tally = { correct: 0, incorrect: 0, count: 0 }; tallyLast = null;
+      render();
+    },
+    "tally-inc": function (t) {
+      var kind = t.getAttribute("data-kind");
+      tally[kind] = (tally[kind] || 0) + 1; tallyLast = kind;
+      var g = currentTallyGoal();
+      updateTallyDisplay(g && g.measurement === "percent");
+    },
+    "tally-undo": function (t) {
+      var kind = tallyLast || t.getAttribute("data-kind");
+      if (tally[kind] > 0) tally[kind]--;
+      var g = currentTallyGoal();
+      updateTallyDisplay(g && g.measurement === "percent");
+    },
+    "tally-reset": function () {
+      tally = { correct: 0, incorrect: 0, count: 0 }; tallyLast = null;
+      var g = currentTallyGoal();
+      updateTallyDisplay(g && g.measurement === "percent");
+    },
+    "tally-save": function () {
+      var form = document.querySelector("form.tally");
+      if (!form) return;
+      var sid = form.querySelector('[name="tallyStudent"]').value;
+      var gid = form.querySelector('[name="tallyGoal"]').value;
+      var date = form.querySelector('[name="tallyDate"]').value || todayISO();
+      var g = S.getGoal(sid, gid);
+      if (!g) { alert("Pick a goal first."); return; }
+      if (g.measurement === "percent") {
+        var total = tally.correct + tally.incorrect;
+        if (!total) { alert("Tap some Correct/Incorrect trials first."); return; }
+        S.addProgress({ studentId: sid, goalId: gid, date: date, score: tally.correct, total: total });
+      } else {
+        if (!tally.count) { alert("Tap the counter first."); return; }
+        S.addProgress({ studentId: sid, goalId: gid, date: date, score: tally.count });
+      }
+      tally = { correct: 0, incorrect: 0, count: 0 }; tallyLast = null;
+      updateTallyDisplay(g.measurement === "percent");
+      toast("Saved data point ✓");
+    },
     "download-report": function (t) {
       var id = t.getAttribute("data-id");
       var s = S.getStudent(id);
@@ -1293,6 +1475,16 @@
     if (action === "range-from") { state.range.from = el.value; render(); return; }
     if (action === "range-to") { state.range.to = el.value; render(); return; }
     if (action === "behavior-student") { state.behaviorStudent = el.value; render(); return; }
+    if (action === "behavior-metric") { state.behaviorMetric = el.value; render(); return; }
+    if (action === "tally-student" || action === "tally-goal") {
+      var form = el.closest(".tally");
+      var sid = form.querySelector('[name="tallyStudent"]').value;
+      var gid = action === "tally-student" ? null : form.querySelector('[name="tallyGoal"]').value;
+      tally = { correct: 0, incorrect: 0, count: 0 };
+      var wrap = el.closest("[data-tally-wrap]");
+      wrap.innerHTML = tallyHTML(sid, gid);
+      return;
+    }
   });
 
   // Form submit (Enter key / native submit) for the data-entry form

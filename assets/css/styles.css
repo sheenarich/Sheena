@@ -232,6 +232,20 @@ svg.chart { display: block; max-width: 100%; }
 .bulk-in { width: 78px; display: inline-block; padding: 6px 8px; }
 .bulk-sel { width: auto; padding: 6px 8px; }
 
+/* Tablet tally counter */
+.tally-display { text-align: center; padding: 18px 0 10px; }
+.tally-big { font-size: 64px; font-weight: 800; line-height: 1; color: var(--primary); font-variant-numeric: tabular-nums; }
+.tally-buttons { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; margin-top: 8px; }
+.tally-btn {
+  border: none; border-radius: 16px; cursor: pointer; font-family: inherit;
+  font-size: 22px; font-weight: 700; color: #fff; padding: 26px 34px; min-width: 150px;
+  box-shadow: var(--shadow); transition: transform .05s;
+}
+.tally-btn:active { transform: scale(0.96); }
+.tally-btn.correct { background: var(--success); }
+.tally-btn.incorrect { background: var(--danger); }
+.tally-btn.count { background: var(--primary); font-size: 30px; padding: 32px 48px; }
+
 /* Date-range filter bar */
 .range-bar { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .range-select { width: auto; padding: 7px 10px; font-size: 13px; }
