@@ -11,6 +11,9 @@ your device.**
   (annual review / re-evaluation alerts), and recent behavior logs.
 - **Students** — a roster with each student's grade, disability category,
   case manager, and key IEP dates.
+- **Goal templates** — insert a fill-in-the-blank IEP goal starter (reading,
+  math, writing, behavior, communication, adaptive) and tweak it, instead of
+  writing every goal from scratch.
 - **IEP Goals + Progress Data** — write measurable goals (percent-correct,
   frequency, duration, prompt level, rating, or your own **custom measurement
   types**), log data points, and see an automatic progress-over-time chart with
@@ -27,11 +30,12 @@ your device.**
   collapsible section so the active list stays focused.
 - **Shareable report** — download a clean, read-only one-page HTML report per
   student (opens in any browser, print to PDF) to hand to a parent or team.
-- **Behavior Tracking (ABC)** — Antecedent → Behavior → Consequence logs with
-  weekly **trend charts** (switch between incident count, average duration, or
-  average intensity) and a per-student filter, plus **pattern analysis** (top
-  antecedents, top settings, and time-of-day distribution) and
-  frequency/intensity summaries.
+- **Behavior Tracking** — multiple log formats (**ABC**, **frequency/event
+  count**, **duration**, and **interval recording**), weekly **trend charts**
+  (switch between incident count, average duration, or average intensity) with a
+  per-student filter, **pattern analysis** (top antecedents, top settings, and
+  time-of-day distribution), and **printable blank data sheets** (ABC, frequency
+  tally, duration, interval, and scatterplot) to collect on paper.
 - **Bulk / group data entry** — log one date's data for every active goal across
   the whole caseload in a single grid (blank rows are skipped).
 - **Tablet tally counter** — big-button counter for live data during a lesson:

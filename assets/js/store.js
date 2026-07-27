@@ -21,6 +21,41 @@
     "Study/Organization Skills", "Transition/Vocational"
   ];
 
+  // Fill-in-the-blank IEP goal starters. [Student] and bracketed blanks are
+  // meant to be edited after inserting.
+  var GOAL_TEMPLATES = [
+    { label: "Reading — comprehension", area: "Reading", baseline: "", measurement: "percent", target: 80,
+      description: "After reading a grade-level passage, [Student] will answer comprehension questions with 80% accuracy across 3 consecutive sessions." },
+    { label: "Reading — fluency (words/min)", area: "Reading", baseline: "", measurement: "frequency", target: 90,
+      description: "Given a grade-level passage, [Student] will read aloud at 90 words correct per minute across 3 consecutive sessions." },
+    { label: "Math — computation facts", area: "Math", baseline: "", measurement: "percent", target: 80,
+      description: "[Student] will solve grade-level [addition/subtraction/multiplication] facts with 80% accuracy across 3 sessions." },
+    { label: "Math — word problems", area: "Math", baseline: "", measurement: "percent", target: 80,
+      description: "[Student] will solve multi-step word problems with 80% accuracy across 3 sessions." },
+    { label: "Writing — complete sentences", area: "Writing", baseline: "", measurement: "percent", target: 80,
+      description: "[Student] will write complete sentences with correct capitalization and end punctuation in 4 of 5 opportunities." },
+    { label: "Behavior — on-task", area: "Behavior/Social-Emotional", baseline: "", measurement: "duration", target: 10,
+      description: "[Student] will remain on-task during independent work for 10 minutes with no more than 1 adult redirection." },
+    { label: "Behavior — following directions", area: "Behavior/Social-Emotional", baseline: "", measurement: "percent", target: 80,
+      description: "[Student] will follow adult directions within 10 seconds in 80% of opportunities." },
+    { label: "Self-regulation — coping strategy", area: "Behavior/Social-Emotional", baseline: "", measurement: "percent", target: 80,
+      description: "When frustrated, [Student] will independently use a coping strategy in 80% of observed opportunities." },
+    { label: "Communication — requesting", area: "Communication/Language", baseline: "", measurement: "percent", target: 80,
+      description: "[Student] will use words or AAC to request a preferred item in 8 of 10 opportunities." },
+    { label: "Social — peer interaction", area: "Behavior/Social-Emotional", baseline: "", measurement: "frequency", target: 3,
+      description: "[Student] will initiate an appropriate interaction with a peer 3 times per activity." },
+    { label: "Adaptive — routine (independence)", area: "Adaptive/Daily Living", baseline: "", measurement: "prompt", target: 5,
+      description: "[Student] will complete a multi-step classroom/self-care routine following a visual schedule at an independent level." }
+  ];
+
+  // Behavior log formats.
+  var BEHAVIOR_TYPES = {
+    abc: "ABC (Antecedent–Behavior–Consequence)",
+    frequency: "Frequency / event count",
+    duration: "Duration recording",
+    interval: "Interval recording"
+  };
+
   // Measurement types drive how a data point is scored & charted.
   var MEASUREMENT_TYPES = {
     percent: { label: "Percent correct (trials)", unit: "%", hasTotal: true, max: 100 },
@@ -71,6 +106,8 @@
     _cache.students.forEach(function (s) {
       (s.goals || []).forEach(function (g) { if (!g.objectives) g.objectives = []; });
     });
+    // Backfill behavior log type.
+    _cache.behaviors.forEach(function (b) { if (!b.type) b.type = "abc"; });
     return _cache;
   }
 
@@ -373,8 +410,10 @@
 
   // ---- Behavior (ABC) -------------------------------------------------------
   function addBehavior(fields) {
+    function num(v) { return v === "" || v == null ? null : Number(v); }
     var b = {
       id: uid(),
+      type: fields.type || "abc",
       studentId: fields.studentId,
       date: fields.date,
       time: fields.time || "",
@@ -383,7 +422,10 @@
       behavior: fields.behavior || "",
       consequence: fields.consequence || "",
       intensity: fields.intensity || "",
-      durationMin: fields.durationMin === "" || fields.durationMin == null ? null : Number(fields.durationMin),
+      durationMin: num(fields.durationMin),
+      count: num(fields.count),
+      intervalsObserved: num(fields.intervalsObserved),
+      intervalsOccurred: num(fields.intervalsOccurred),
       notes: fields.notes || ""
     };
     load().behaviors.push(b);
@@ -565,7 +607,11 @@
       { id: "bh9", studentId: "stu-marcus", date: iso(2026, 6, 16), time: "10:15", setting: "Math — independent work", antecedent: "Given multi-step worksheet", behavior: "Left seat briefly", consequence: "Self-corrected after break", intensity: "Low", durationMin: 1, notes: "Big improvement." },
       // Ava — occasional morning starts
       { id: "bh10", studentId: "stu-ava", date: iso(2026, 5, 15), time: "09:05", setting: "Morning arrival", antecedent: "Unstructured transition", behavior: "Difficulty starting work", consequence: "Visual checklist provided", intensity: "Low", durationMin: 3, notes: "Checklist helped." },
-      { id: "bh11", studentId: "stu-ava", date: iso(2026, 6, 5), time: "09:05", setting: "Morning arrival", antecedent: "Unstructured transition", behavior: "Slow to start", consequence: "First/then visual", intensity: "Low", durationMin: 2, notes: "" }
+      { id: "bh11", studentId: "stu-ava", date: iso(2026, 6, 5), time: "09:05", setting: "Morning arrival", antecedent: "Unstructured transition", behavior: "Slow to start", consequence: "First/then visual", intensity: "Low", durationMin: 2, notes: "" },
+      // Examples of the other log formats
+      { id: "bh12", type: "frequency", studentId: "stu-marcus", date: iso(2026, 6, 9), time: "10:00", setting: "Math", behavior: "Calling out without raising hand", count: 6, intensity: "Low", notes: "During 20-min lesson." },
+      { id: "bh13", type: "duration", studentId: "stu-marcus", date: iso(2026, 6, 11), time: "09:30", setting: "Independent work", behavior: "Out of seat", durationMin: 5, intensity: "Medium", notes: "" },
+      { id: "bh14", type: "interval", studentId: "stu-marcus", date: iso(2026, 6, 12), time: "13:00", setting: "Group work", behavior: "On-task", intervalsObserved: 10, intervalsOccurred: 7, notes: "Momentary time sampling, 30s intervals." }
     ];
 
     return { schemaVersion: SCHEMA_VERSION, students: [s1, s2, s3], progress: progress, behaviors: behaviors, settings: { customMeasures: [] } };
@@ -576,6 +622,8 @@
     KEY: KEY,
     DISABILITY_CATEGORIES: DISABILITY_CATEGORIES,
     GOAL_AREAS: GOAL_AREAS,
+    GOAL_TEMPLATES: GOAL_TEMPLATES,
+    BEHAVIOR_TYPES: BEHAVIOR_TYPES,
     MEASUREMENT_TYPES: MEASUREMENT_TYPES,
     PROMPT_LEVELS: PROMPT_LEVELS,
     ACCOMMODATION_CATEGORIES: ACCOMMODATION_CATEGORIES,

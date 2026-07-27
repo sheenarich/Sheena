@@ -338,6 +338,41 @@ svg.chart { display: block; max-width: 100%; }
     "Study/Organization Skills", "Transition/Vocational"
   ];
 
+  // Fill-in-the-blank IEP goal starters. [Student] and bracketed blanks are
+  // meant to be edited after inserting.
+  var GOAL_TEMPLATES = [
+    { label: "Reading — comprehension", area: "Reading", baseline: "", measurement: "percent", target: 80,
+      description: "After reading a grade-level passage, [Student] will answer comprehension questions with 80% accuracy across 3 consecutive sessions." },
+    { label: "Reading — fluency (words/min)", area: "Reading", baseline: "", measurement: "frequency", target: 90,
+      description: "Given a grade-level passage, [Student] will read aloud at 90 words correct per minute across 3 consecutive sessions." },
+    { label: "Math — computation facts", area: "Math", baseline: "", measurement: "percent", target: 80,
+      description: "[Student] will solve grade-level [addition/subtraction/multiplication] facts with 80% accuracy across 3 sessions." },
+    { label: "Math — word problems", area: "Math", baseline: "", measurement: "percent", target: 80,
+      description: "[Student] will solve multi-step word problems with 80% accuracy across 3 sessions." },
+    { label: "Writing — complete sentences", area: "Writing", baseline: "", measurement: "percent", target: 80,
+      description: "[Student] will write complete sentences with correct capitalization and end punctuation in 4 of 5 opportunities." },
+    { label: "Behavior — on-task", area: "Behavior/Social-Emotional", baseline: "", measurement: "duration", target: 10,
+      description: "[Student] will remain on-task during independent work for 10 minutes with no more than 1 adult redirection." },
+    { label: "Behavior — following directions", area: "Behavior/Social-Emotional", baseline: "", measurement: "percent", target: 80,
+      description: "[Student] will follow adult directions within 10 seconds in 80% of opportunities." },
+    { label: "Self-regulation — coping strategy", area: "Behavior/Social-Emotional", baseline: "", measurement: "percent", target: 80,
+      description: "When frustrated, [Student] will independently use a coping strategy in 80% of observed opportunities." },
+    { label: "Communication — requesting", area: "Communication/Language", baseline: "", measurement: "percent", target: 80,
+      description: "[Student] will use words or AAC to request a preferred item in 8 of 10 opportunities." },
+    { label: "Social — peer interaction", area: "Behavior/Social-Emotional", baseline: "", measurement: "frequency", target: 3,
+      description: "[Student] will initiate an appropriate interaction with a peer 3 times per activity." },
+    { label: "Adaptive — routine (independence)", area: "Adaptive/Daily Living", baseline: "", measurement: "prompt", target: 5,
+      description: "[Student] will complete a multi-step classroom/self-care routine following a visual schedule at an independent level." }
+  ];
+
+  // Behavior log formats.
+  var BEHAVIOR_TYPES = {
+    abc: "ABC (Antecedent–Behavior–Consequence)",
+    frequency: "Frequency / event count",
+    duration: "Duration recording",
+    interval: "Interval recording"
+  };
+
   // Measurement types drive how a data point is scored & charted.
   var MEASUREMENT_TYPES = {
     percent: { label: "Percent correct (trials)", unit: "%", hasTotal: true, max: 100 },
@@ -388,6 +423,8 @@ svg.chart { display: block; max-width: 100%; }
     _cache.students.forEach(function (s) {
       (s.goals || []).forEach(function (g) { if (!g.objectives) g.objectives = []; });
     });
+    // Backfill behavior log type.
+    _cache.behaviors.forEach(function (b) { if (!b.type) b.type = "abc"; });
     return _cache;
   }
 
@@ -690,8 +727,10 @@ svg.chart { display: block; max-width: 100%; }
 
   // ---- Behavior (ABC) -------------------------------------------------------
   function addBehavior(fields) {
+    function num(v) { return v === "" || v == null ? null : Number(v); }
     var b = {
       id: uid(),
+      type: fields.type || "abc",
       studentId: fields.studentId,
       date: fields.date,
       time: fields.time || "",
@@ -700,7 +739,10 @@ svg.chart { display: block; max-width: 100%; }
       behavior: fields.behavior || "",
       consequence: fields.consequence || "",
       intensity: fields.intensity || "",
-      durationMin: fields.durationMin === "" || fields.durationMin == null ? null : Number(fields.durationMin),
+      durationMin: num(fields.durationMin),
+      count: num(fields.count),
+      intervalsObserved: num(fields.intervalsObserved),
+      intervalsOccurred: num(fields.intervalsOccurred),
       notes: fields.notes || ""
     };
     load().behaviors.push(b);
@@ -882,7 +924,11 @@ svg.chart { display: block; max-width: 100%; }
       { id: "bh9", studentId: "stu-marcus", date: iso(2026, 6, 16), time: "10:15", setting: "Math — independent work", antecedent: "Given multi-step worksheet", behavior: "Left seat briefly", consequence: "Self-corrected after break", intensity: "Low", durationMin: 1, notes: "Big improvement." },
       // Ava — occasional morning starts
       { id: "bh10", studentId: "stu-ava", date: iso(2026, 5, 15), time: "09:05", setting: "Morning arrival", antecedent: "Unstructured transition", behavior: "Difficulty starting work", consequence: "Visual checklist provided", intensity: "Low", durationMin: 3, notes: "Checklist helped." },
-      { id: "bh11", studentId: "stu-ava", date: iso(2026, 6, 5), time: "09:05", setting: "Morning arrival", antecedent: "Unstructured transition", behavior: "Slow to start", consequence: "First/then visual", intensity: "Low", durationMin: 2, notes: "" }
+      { id: "bh11", studentId: "stu-ava", date: iso(2026, 6, 5), time: "09:05", setting: "Morning arrival", antecedent: "Unstructured transition", behavior: "Slow to start", consequence: "First/then visual", intensity: "Low", durationMin: 2, notes: "" },
+      // Examples of the other log formats
+      { id: "bh12", type: "frequency", studentId: "stu-marcus", date: iso(2026, 6, 9), time: "10:00", setting: "Math", behavior: "Calling out without raising hand", count: 6, intensity: "Low", notes: "During 20-min lesson." },
+      { id: "bh13", type: "duration", studentId: "stu-marcus", date: iso(2026, 6, 11), time: "09:30", setting: "Independent work", behavior: "Out of seat", durationMin: 5, intensity: "Medium", notes: "" },
+      { id: "bh14", type: "interval", studentId: "stu-marcus", date: iso(2026, 6, 12), time: "13:00", setting: "Group work", behavior: "On-task", intervalsObserved: 10, intervalsOccurred: 7, notes: "Momentary time sampling, 30s intervals." }
     ];
 
     return { schemaVersion: SCHEMA_VERSION, students: [s1, s2, s3], progress: progress, behaviors: behaviors, settings: { customMeasures: [] } };
@@ -893,6 +939,8 @@ svg.chart { display: block; max-width: 100%; }
     KEY: KEY,
     DISABILITY_CATEGORIES: DISABILITY_CATEGORIES,
     GOAL_AREAS: GOAL_AREAS,
+    GOAL_TEMPLATES: GOAL_TEMPLATES,
+    BEHAVIOR_TYPES: BEHAVIOR_TYPES,
     MEASUREMENT_TYPES: MEASUREMENT_TYPES,
     PROMPT_LEVELS: PROMPT_LEVELS,
     ACCOMMODATION_CATEGORIES: ACCOMMODATION_CATEGORIES,
@@ -1858,6 +1906,22 @@ svg.chart { display: block; max-width: 100%; }
     ]) + '</div>';
     html += '</div>';
 
+    // Printable blank data sheets
+    var sheetOpts = [
+      { value: "abc", label: "ABC chart" },
+      { value: "frequency", label: "Frequency tally" },
+      { value: "duration", label: "Duration log" },
+      { value: "interval", label: "Interval recording" },
+      { value: "scatterplot", label: "Scatterplot" }
+    ];
+    html += '<h3 class="section-title">🖨 Printable blank data sheets</h3>' +
+      '<div class="card no-print"><p class="small muted">Download a ready-to-print blank sheet to collect data on paper, then enter it later.</p>' +
+      '<div class="flex wrap gap-sm" style="align-items:flex-end">' +
+      '<label class="field" style="margin-bottom:0;max-width:220px"><span>Sheet type</span><select id="sheet-type" class="range-select" style="width:100%">' + options(sheetOpts, "abc") + '</select></label>' +
+      '<label class="field" style="margin-bottom:0;max-width:220px"><span>Student (optional)</span><select id="sheet-student" class="range-select" style="width:100%"><option value="">— blank —</option>' + options(students.map(function (s) { return { value: s.id, label: fullName(s) }; })) + '</select></label>' +
+      '<button class="btn primary" data-action="download-sheet">⬇ Download sheet</button>' +
+      '</div></div>';
+
     html += '<h3 class="section-title">All incidents (' + behaviors.length + ')</h3><div class="card">';
     if (!behaviors.length) html += '<p class="muted small mb-0">No incidents logged yet.</p>';
     else html += behaviorTableHTML(behaviors, true);
@@ -1865,18 +1929,103 @@ svg.chart { display: block; max-width: 100%; }
     return html;
   }
 
+  // ---- Printable blank data sheets ------------------------------------------
+  var SHEET_CSS =
+    "*{box-sizing:border-box}body{margin:0;font:13px/1.4 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;color:#111}" +
+    ".sheet{max-width:1040px;margin:0 auto;padding:24px}" +
+    ".sheet-head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #111;padding-bottom:8px;margin-bottom:10px}" +
+    ".sheet-title{font-size:20px;font-weight:800;margin:0}.brandline{font-size:12px;color:#555}" +
+    ".fillrow{display:flex;gap:20px;flex-wrap:wrap;margin:8px 0 14px}" +
+    ".fill{font-size:13px}.fill .line{display:inline-block;border-bottom:1px solid #111;min-width:150px;height:16px}" +
+    "table{width:100%;border-collapse:collapse}th,td{border:1px solid #444;padding:6px 8px;vertical-align:top}" +
+    "th{background:#eee;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.03em}" +
+    "td{height:30px;font-size:12px}" +
+    ".legend{font-size:11px;color:#333;margin-top:10px}" +
+    ".printbtn{background:#3f6fe0;color:#fff;border:none;border-radius:8px;padding:9px 15px;font-size:14px;cursor:pointer}" +
+    "@media print{.printbtn{display:none}.sheet{padding:0;max-width:none}}";
+
+  function sheetRows(cells, count) {
+    var tr = "<tr>" + cells.map(function () { return "<td></td>"; }).join("") + "</tr>";
+    var out = "";
+    for (var i = 0; i < count; i++) out += tr;
+    return out;
+  }
+
+  function buildSheet(type, studentId) {
+    var s = studentId ? S.getStudent(studentId) : null;
+    var titles = { abc: "ABC Behavior Chart", frequency: "Frequency / Event Count Sheet", duration: "Duration Recording Sheet", interval: "Interval Recording Sheet", scatterplot: "Behavior Scatterplot" };
+    var line = '<span class="line"></span>';
+    var head = '<div class="sheet-head"><div><h1 class="sheet-title">' + esc(titles[type] || "Data Sheet") + '</h1><div class="brandline">Goal Tracker · Accessible Academics</div></div>' +
+      '<button class="printbtn" onclick="window.print()">🖨 Print</button></div>';
+    var fill = '<div class="fillrow">' +
+      '<div class="fill"><b>Student:</b> ' + (s ? esc(fullName(s)) : line) + '</div>' +
+      '<div class="fill"><b>Target behavior:</b> ' + line + '</div>' +
+      '<div class="fill"><b>Observer:</b> ' + line + '</div>' +
+      '<div class="fill"><b>Week of:</b> ' + line + '</div></div>';
+
+    var body = "";
+    if (type === "abc") {
+      body = '<table><thead><tr><th style="width:12%">Date / Time</th><th style="width:22%">Antecedent (before)</th><th style="width:22%">Behavior</th><th style="width:22%">Consequence (after)</th><th style="width:10%">Intensity L/M/H</th><th>Notes</th></tr></thead><tbody>' +
+        sheetRows([1, 2, 3, 4, 5, 6], 14) + '</tbody></table>';
+    } else if (type === "frequency") {
+      body = '<table><thead><tr><th style="width:14%">Date</th><th style="width:26%">Behavior / target</th><th>Tally marks</th><th style="width:12%">Total</th></tr></thead><tbody>' +
+        sheetRows([1, 2, 3, 4], 14) + '</tbody></table>' +
+        '<p class="legend">Make one mark ( | ) each time the behavior occurs; total the row at the end of the observation.</p>';
+    } else if (type === "duration") {
+      body = '<table><thead><tr><th style="width:14%">Date</th><th style="width:26%">Behavior</th><th style="width:14%">Start</th><th style="width:14%">Stop</th><th style="width:14%">Total (min)</th><th>Notes</th></tr></thead><tbody>' +
+        sheetRows([1, 2, 3, 4, 5, 6], 14) + '</tbody></table>' +
+        '<p class="legend">Record clock time the behavior started and stopped; compute total minutes per occurrence.</p>';
+    } else if (type === "interval") {
+      var cols = '<th style="width:80px">Time</th>';
+      for (var c = 1; c <= 10; c++) cols += '<th>' + c + '</th>';
+      var cells = [];
+      for (var k = 0; k <= 10; k++) cells.push(k);
+      body = '<table><thead><tr>' + cols + '</tr></thead><tbody>' + sheetRows(cells, 12) + '</tbody></table>' +
+        '<p class="legend">Divide the observation into equal intervals. In each box mark <b>+</b> if the behavior occurred during the interval and <b>–</b> if it did not (partial / whole / momentary — circle one: P / W / M). % = (+ intervals ÷ total intervals) × 100.</p>';
+    } else { // scatterplot
+      var days = ["Mon", "Tue", "Wed", "Thu", "Fri"];
+      var sh = '<th style="width:120px">Time / Activity</th>' + days.map(function (d) { return '<th>' + d + '<br><span style="font-weight:400">___/___</span></th>'; }).join("");
+      body = '<table><thead><tr>' + sh + '</tr></thead><tbody>' + sheetRows([0, 1, 2, 3, 4, 5], 14) + '</tbody></table>' +
+        '<p class="legend">Write a time or activity in each row. Shade or mark a box when the behavior occurs, to reveal patterns by time and day.</p>';
+    }
+
+    return '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />' +
+      '<title>' + esc(titles[type] || "Data Sheet") + (s ? " — " + esc(fullName(s)) : "") + '</title><style>' + SHEET_CSS + '</style></head><body><div class="sheet">' +
+      head + fill + body +
+      '<p class="legend" style="margin-top:18px">Confidential student record — handle per your district\'s privacy policy.</p></div></body></html>';
+  }
+
+  function behaviorTypeShort(t) { return { abc: "ABC", frequency: "Frequency", duration: "Duration", interval: "Interval" }[t] || "ABC"; }
+
   function behaviorTableHTML(list, showStudent) {
     var head = '<thead><tr><th>Date/Time</th>' + (showStudent ? '<th>Student</th>' : '') +
-      '<th>Antecedent</th><th>Behavior</th><th>Consequence</th><th>Intensity</th><th class="no-print"></th></tr></thead>';
+      '<th>Type</th><th>Behavior &amp; details</th><th>Measure</th><th class="no-print"></th></tr></thead>';
     var rows = list.map(function (b) {
       var s = showStudent ? S.getStudent(b.studentId) : null;
-      var intChip = b.intensity ? '<span class="chip ' + (b.intensity === "High" ? "danger" : b.intensity === "Medium" ? "warn" : "success") + '">' + esc(b.intensity) + '</span>' : "—";
+      var type = b.type || "abc";
+      var details = '<strong>' + esc(b.behavior || "—") + '</strong>';
+      if (b.setting) details += '<br><span class="tiny muted">' + esc(b.setting) + '</span>';
+      if (type === "abc") {
+        if (b.antecedent) details += '<br><span class="tiny muted">A: ' + esc(b.antecedent) + '</span>';
+        if (b.consequence) details += '<br><span class="tiny muted">C: ' + esc(b.consequence) + '</span>';
+      }
+      var measure;
+      if (type === "frequency") {
+        measure = '<strong>' + (b.count != null ? b.count + "×" : "—") + '</strong>';
+      } else if (type === "duration") {
+        measure = '<strong>' + (b.durationMin != null ? b.durationMin + " min" : "—") + '</strong>';
+      } else if (type === "interval") {
+        var pct = b.intervalsObserved ? Math.round(((b.intervalsOccurred || 0) / b.intervalsObserved) * 100) : null;
+        measure = '<strong>' + (b.intervalsObserved != null ? (b.intervalsOccurred || 0) + "/" + b.intervalsObserved : "—") + '</strong>' + (pct != null ? ' <span class="tiny muted">(' + pct + '%)</span>' : "");
+      } else {
+        measure = b.intensity ? '<span class="chip ' + (b.intensity === "High" ? "danger" : b.intensity === "Medium" ? "warn" : "success") + '">' + esc(b.intensity) + '</span>' : "—";
+        if (b.durationMin != null) measure += '<br><span class="tiny muted">' + b.durationMin + ' min</span>';
+      }
       return '<tr><td class="nowrap tiny">' + fmtDate(b.date) + (b.time ? '<br>' + esc(b.time) : "") + '</td>' +
         (showStudent ? '<td class="nowrap">' + esc(s ? fullName(s) : "—") + '</td>' : '') +
-        '<td class="small">' + esc(b.antecedent || "—") + '</td>' +
-        '<td class="small"><strong>' + esc(b.behavior || "—") + '</strong>' + (b.setting ? '<br><span class="tiny muted">' + esc(b.setting) + '</span>' : "") + '</td>' +
-        '<td class="small">' + esc(b.consequence || "—") + '</td>' +
-        '<td class="nowrap">' + intChip + (b.durationMin != null ? '<br><span class="tiny muted">' + b.durationMin + ' min</span>' : "") + '</td>' +
+        '<td class="nowrap"><span class="chip">' + esc(behaviorTypeShort(type)) + '</span></td>' +
+        '<td class="small">' + details + '</td>' +
+        '<td class="nowrap">' + measure + '</td>' +
         '<td class="right no-print"><button class="btn sm ghost" data-action="del-behavior" data-bid="' + b.id + '">✕</button></td></tr>';
     }).join("");
     return '<div class="table-wrap"><table>' + head + '<tbody>' + rows + '</tbody></table></div>';
@@ -2046,7 +2195,9 @@ svg.chart { display: block; max-width: 100%; }
     var measureOpts = Object.keys(mmap).map(function (k) { return { value: k, label: mmap[k].label }; });
     measureOpts.push({ value: "__new__", label: "＋ New custom type…" });
     var areaList = S.GOAL_AREAS.map(function (a) { return '<option value="' + esc(a) + '"></option>'; }).join("");
+    var tplOpts = S.GOAL_TEMPLATES.map(function (t, i) { return '<option value="' + i + '">' + esc(t.label) + '</option>'; }).join("");
     return '<form data-form="goal" data-id="' + studentId + '" data-goal="' + (g.id || "") + '">' +
+      (g.id ? "" : '<label class="field no-print"><span>Start from a template (optional)</span><select data-action="goal-template"><option value="">— Choose a template to pre-fill —</option>' + tplOpts + '</select></label>') +
       '<div class="form-grid">' +
       '<label class="field"><span>Goal area</span><input name="area" list="goal-areas" value="' + esc(g.area || "") + '" placeholder="Reading, Math, or type your own…" />' +
       '<datalist id="goal-areas">' + areaList + '</datalist></label>' +
@@ -2080,22 +2231,49 @@ svg.chart { display: block; max-width: 100%; }
       '</form>';
   }
 
-  function behaviorForm(studentId) {
+  function behaviorForm(studentId, type) {
+    type = type || "abc";
     var students = S.getStudents();
+    var sid = studentId || (students[0] && students[0].id);
     var studentOpts = students.map(function (s) { return { value: s.id, label: fullName(s) }; });
-    return '<form data-form="behavior">' +
+    var typeOpts = Object.keys(S.BEHAVIOR_TYPES).map(function (k) { return { value: k, label: S.BEHAVIOR_TYPES[k] }; });
+
+    var fields = '';
+    if (type === "abc") {
+      fields =
+        '<label class="field full"><span>Antecedent (what happened before)</span><textarea name="antecedent" placeholder="What was going on right before?"></textarea></label>' +
+        '<label class="field full"><span>Behavior (what the student did)</span><textarea name="behavior" placeholder="Observable, measurable description" required></textarea></label>' +
+        '<label class="field full"><span>Consequence (what happened after)</span><textarea name="consequence" placeholder="How was it responded to?"></textarea></label>' +
+        '<label class="field"><span>Intensity</span><select name="intensity"><option value="">—</option>' + options(S.BEHAVIOR_INTENSITY) + '</select></label>' +
+        '<label class="field"><span>Duration (min, optional)</span><input type="number" name="durationMin" min="0" step="0.5" /></label>';
+    } else if (type === "frequency") {
+      fields =
+        '<label class="field full"><span>Behavior</span><textarea name="behavior" placeholder="e.g. Calling out" required></textarea></label>' +
+        '<label class="field"><span>Count (how many times)</span><input type="number" name="count" min="0" step="1" placeholder="e.g. 7" /></label>' +
+        '<label class="field"><span>Intensity (optional)</span><select name="intensity"><option value="">—</option>' + options(S.BEHAVIOR_INTENSITY) + '</select></label>';
+    } else if (type === "duration") {
+      fields =
+        '<label class="field full"><span>Behavior</span><textarea name="behavior" placeholder="e.g. Out of seat" required></textarea></label>' +
+        '<label class="field"><span>Total duration (min)</span><input type="number" name="durationMin" min="0" step="0.5" placeholder="e.g. 8" /></label>' +
+        '<label class="field"><span>Intensity (optional)</span><select name="intensity"><option value="">—</option>' + options(S.BEHAVIOR_INTENSITY) + '</select></label>';
+    } else if (type === "interval") {
+      fields =
+        '<label class="field full"><span>Behavior</span><textarea name="behavior" placeholder="e.g. On-task" required></textarea></label>' +
+        '<label class="field"><span># intervals observed</span><input type="number" name="intervalsObserved" min="1" step="1" placeholder="e.g. 10" /></label>' +
+        '<label class="field"><span># intervals behavior occurred</span><input type="number" name="intervalsOccurred" min="0" step="1" placeholder="e.g. 7" /></label>';
+    }
+
+    return '<div data-behavior-wrap><form data-form="behavior">' +
+      '<input type="hidden" name="type" value="' + esc(type) + '" />' +
+      '<label class="field no-print"><span>Log type</span><select data-action="behavior-type" data-sid="' + esc(sid || "") + '">' + options(typeOpts, type) + '</select></label>' +
       '<div class="form-grid">' +
-      '<label class="field full"><span>Student</span><select name="studentId">' + options(studentOpts, studentId || (students[0] && students[0].id)) + '</select></label>' +
+      '<label class="field full"><span>Student</span><select name="studentId">' + options(studentOpts, sid) + '</select></label>' +
       '<label class="field"><span>Date</span><input type="date" name="date" value="' + todayISO() + '" /></label>' +
       '<label class="field"><span>Time</span><input type="time" name="time" /></label>' +
       '<label class="field full"><span>Setting / activity</span><input name="setting" placeholder="e.g. Math — independent work" /></label>' +
-      '<label class="field full"><span>Antecedent (what happened before)</span><textarea name="antecedent" placeholder="What was going on right before?"></textarea></label>' +
-      '<label class="field full"><span>Behavior (what the student did)</span><textarea name="behavior" placeholder="Observable, measurable description" required></textarea></label>' +
-      '<label class="field full"><span>Consequence (what happened after)</span><textarea name="consequence" placeholder="How was it responded to?"></textarea></label>' +
-      '<label class="field"><span>Intensity</span><select name="intensity"><option value="">—</option>' + options(S.BEHAVIOR_INTENSITY) + '</select></label>' +
-      '<label class="field"><span>Duration (min)</span><input type="number" name="durationMin" min="0" step="0.5" /></label>' +
+      fields +
       '<label class="field full"><span>Notes</span><textarea name="notes"></textarea></label>' +
-      '</div></form>';
+      '</div></form></div>';
   }
 
   function readForm(formEl) {
@@ -2343,8 +2521,18 @@ svg.chart { display: block; max-width: 100%; }
       goalDataModal(t.getAttribute("data-id"), t.getAttribute("data-goal"));
     },
     "add-behavior": function (t) {
-      openModal("Log behavior incident (ABC)", behaviorForm(t ? t.getAttribute("data-id") : null),
+      openModal("Log behavior", behaviorForm(t ? t.getAttribute("data-id") : null, "abc"),
         '<button class="btn" data-close="1">Cancel</button><button class="btn primary" data-submit="behavior">Save</button>');
+    },
+    "download-sheet": function () {
+      var typeEl = document.getElementById("sheet-type");
+      var stuEl = document.getElementById("sheet-student");
+      var type = typeEl ? typeEl.value : "abc";
+      var sid = stuEl ? stuEl.value : "";
+      var s = sid ? S.getStudent(sid) : null;
+      var namePart = s ? fullName(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + "-" : "";
+      download("data-sheet-" + type + "-" + namePart + todayISO() + ".html", buildSheet(type, sid), "text/html");
+      toast("Sheet downloaded");
     },
     "del-behavior": function (t) {
       if (confirm("Delete this behavior log?")) { S.deleteBehavior(t.getAttribute("data-bid")); toast("Deleted"); render(); }
@@ -2514,6 +2702,29 @@ svg.chart { display: block; max-width: 100%; }
       // Capture the in-progress goal, then open the custom-type creator.
       pendingGoalCtx = captureGoalForm();
       openMeasureModal();
+      return;
+    }
+    if (action === "goal-template") {
+      if (el.value === "") return;
+      var tpl = S.GOAL_TEMPLATES[Number(el.value)];
+      var gf = el.closest("form");
+      if (tpl && gf) {
+        gf.querySelector('[name="area"]').value = tpl.area;
+        gf.querySelector('[name="description"]').value = tpl.description;
+        gf.querySelector('[name="measurement"]').value = tpl.measurement;
+        gf.querySelector('[name="target"]').value = tpl.target != null ? tpl.target : "";
+        gf.querySelector('[name="baseline"]').value = tpl.baseline || "";
+      }
+      el.value = "";
+      return;
+    }
+    if (action === "behavior-type") {
+      var wrap = el.closest("[data-behavior-wrap]");
+      if (wrap) {
+        var stuSel = wrap.querySelector('[name="studentId"]');
+        var sid = stuSel ? stuSel.value : "";
+        wrap.outerHTML = behaviorForm(sid, el.value);
+      }
       return;
     }
     if (action === "range-change") {

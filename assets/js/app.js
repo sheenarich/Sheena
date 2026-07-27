@@ -809,6 +809,22 @@
     ]) + '</div>';
     html += '</div>';
 
+    // Printable blank data sheets
+    var sheetOpts = [
+      { value: "abc", label: "ABC chart" },
+      { value: "frequency", label: "Frequency tally" },
+      { value: "duration", label: "Duration log" },
+      { value: "interval", label: "Interval recording" },
+      { value: "scatterplot", label: "Scatterplot" }
+    ];
+    html += '<h3 class="section-title">🖨 Printable blank data sheets</h3>' +
+      '<div class="card no-print"><p class="small muted">Download a ready-to-print blank sheet to collect data on paper, then enter it later.</p>' +
+      '<div class="flex wrap gap-sm" style="align-items:flex-end">' +
+      '<label class="field" style="margin-bottom:0;max-width:220px"><span>Sheet type</span><select id="sheet-type" class="range-select" style="width:100%">' + options(sheetOpts, "abc") + '</select></label>' +
+      '<label class="field" style="margin-bottom:0;max-width:220px"><span>Student (optional)</span><select id="sheet-student" class="range-select" style="width:100%"><option value="">— blank —</option>' + options(students.map(function (s) { return { value: s.id, label: fullName(s) }; })) + '</select></label>' +
+      '<button class="btn primary" data-action="download-sheet">⬇ Download sheet</button>' +
+      '</div></div>';
+
     html += '<h3 class="section-title">All incidents (' + behaviors.length + ')</h3><div class="card">';
     if (!behaviors.length) html += '<p class="muted small mb-0">No incidents logged yet.</p>';
     else html += behaviorTableHTML(behaviors, true);
@@ -816,18 +832,103 @@
     return html;
   }
 
+  // ---- Printable blank data sheets ------------------------------------------
+  var SHEET_CSS =
+    "*{box-sizing:border-box}body{margin:0;font:13px/1.4 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;color:#111}" +
+    ".sheet{max-width:1040px;margin:0 auto;padding:24px}" +
+    ".sheet-head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #111;padding-bottom:8px;margin-bottom:10px}" +
+    ".sheet-title{font-size:20px;font-weight:800;margin:0}.brandline{font-size:12px;color:#555}" +
+    ".fillrow{display:flex;gap:20px;flex-wrap:wrap;margin:8px 0 14px}" +
+    ".fill{font-size:13px}.fill .line{display:inline-block;border-bottom:1px solid #111;min-width:150px;height:16px}" +
+    "table{width:100%;border-collapse:collapse}th,td{border:1px solid #444;padding:6px 8px;vertical-align:top}" +
+    "th{background:#eee;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.03em}" +
+    "td{height:30px;font-size:12px}" +
+    ".legend{font-size:11px;color:#333;margin-top:10px}" +
+    ".printbtn{background:#3f6fe0;color:#fff;border:none;border-radius:8px;padding:9px 15px;font-size:14px;cursor:pointer}" +
+    "@media print{.printbtn{display:none}.sheet{padding:0;max-width:none}}";
+
+  function sheetRows(cells, count) {
+    var tr = "<tr>" + cells.map(function () { return "<td></td>"; }).join("") + "</tr>";
+    var out = "";
+    for (var i = 0; i < count; i++) out += tr;
+    return out;
+  }
+
+  function buildSheet(type, studentId) {
+    var s = studentId ? S.getStudent(studentId) : null;
+    var titles = { abc: "ABC Behavior Chart", frequency: "Frequency / Event Count Sheet", duration: "Duration Recording Sheet", interval: "Interval Recording Sheet", scatterplot: "Behavior Scatterplot" };
+    var line = '<span class="line"></span>';
+    var head = '<div class="sheet-head"><div><h1 class="sheet-title">' + esc(titles[type] || "Data Sheet") + '</h1><div class="brandline">Goal Tracker · Accessible Academics</div></div>' +
+      '<button class="printbtn" onclick="window.print()">🖨 Print</button></div>';
+    var fill = '<div class="fillrow">' +
+      '<div class="fill"><b>Student:</b> ' + (s ? esc(fullName(s)) : line) + '</div>' +
+      '<div class="fill"><b>Target behavior:</b> ' + line + '</div>' +
+      '<div class="fill"><b>Observer:</b> ' + line + '</div>' +
+      '<div class="fill"><b>Week of:</b> ' + line + '</div></div>';
+
+    var body = "";
+    if (type === "abc") {
+      body = '<table><thead><tr><th style="width:12%">Date / Time</th><th style="width:22%">Antecedent (before)</th><th style="width:22%">Behavior</th><th style="width:22%">Consequence (after)</th><th style="width:10%">Intensity L/M/H</th><th>Notes</th></tr></thead><tbody>' +
+        sheetRows([1, 2, 3, 4, 5, 6], 14) + '</tbody></table>';
+    } else if (type === "frequency") {
+      body = '<table><thead><tr><th style="width:14%">Date</th><th style="width:26%">Behavior / target</th><th>Tally marks</th><th style="width:12%">Total</th></tr></thead><tbody>' +
+        sheetRows([1, 2, 3, 4], 14) + '</tbody></table>' +
+        '<p class="legend">Make one mark ( | ) each time the behavior occurs; total the row at the end of the observation.</p>';
+    } else if (type === "duration") {
+      body = '<table><thead><tr><th style="width:14%">Date</th><th style="width:26%">Behavior</th><th style="width:14%">Start</th><th style="width:14%">Stop</th><th style="width:14%">Total (min)</th><th>Notes</th></tr></thead><tbody>' +
+        sheetRows([1, 2, 3, 4, 5, 6], 14) + '</tbody></table>' +
+        '<p class="legend">Record clock time the behavior started and stopped; compute total minutes per occurrence.</p>';
+    } else if (type === "interval") {
+      var cols = '<th style="width:80px">Time</th>';
+      for (var c = 1; c <= 10; c++) cols += '<th>' + c + '</th>';
+      var cells = [];
+      for (var k = 0; k <= 10; k++) cells.push(k);
+      body = '<table><thead><tr>' + cols + '</tr></thead><tbody>' + sheetRows(cells, 12) + '</tbody></table>' +
+        '<p class="legend">Divide the observation into equal intervals. In each box mark <b>+</b> if the behavior occurred during the interval and <b>–</b> if it did not (partial / whole / momentary — circle one: P / W / M). % = (+ intervals ÷ total intervals) × 100.</p>';
+    } else { // scatterplot
+      var days = ["Mon", "Tue", "Wed", "Thu", "Fri"];
+      var sh = '<th style="width:120px">Time / Activity</th>' + days.map(function (d) { return '<th>' + d + '<br><span style="font-weight:400">___/___</span></th>'; }).join("");
+      body = '<table><thead><tr>' + sh + '</tr></thead><tbody>' + sheetRows([0, 1, 2, 3, 4, 5], 14) + '</tbody></table>' +
+        '<p class="legend">Write a time or activity in each row. Shade or mark a box when the behavior occurs, to reveal patterns by time and day.</p>';
+    }
+
+    return '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />' +
+      '<title>' + esc(titles[type] || "Data Sheet") + (s ? " — " + esc(fullName(s)) : "") + '</title><style>' + SHEET_CSS + '</style></head><body><div class="sheet">' +
+      head + fill + body +
+      '<p class="legend" style="margin-top:18px">Confidential student record — handle per your district\'s privacy policy.</p></div></body></html>';
+  }
+
+  function behaviorTypeShort(t) { return { abc: "ABC", frequency: "Frequency", duration: "Duration", interval: "Interval" }[t] || "ABC"; }
+
   function behaviorTableHTML(list, showStudent) {
     var head = '<thead><tr><th>Date/Time</th>' + (showStudent ? '<th>Student</th>' : '') +
-      '<th>Antecedent</th><th>Behavior</th><th>Consequence</th><th>Intensity</th><th class="no-print"></th></tr></thead>';
+      '<th>Type</th><th>Behavior &amp; details</th><th>Measure</th><th class="no-print"></th></tr></thead>';
     var rows = list.map(function (b) {
       var s = showStudent ? S.getStudent(b.studentId) : null;
-      var intChip = b.intensity ? '<span class="chip ' + (b.intensity === "High" ? "danger" : b.intensity === "Medium" ? "warn" : "success") + '">' + esc(b.intensity) + '</span>' : "—";
+      var type = b.type || "abc";
+      var details = '<strong>' + esc(b.behavior || "—") + '</strong>';
+      if (b.setting) details += '<br><span class="tiny muted">' + esc(b.setting) + '</span>';
+      if (type === "abc") {
+        if (b.antecedent) details += '<br><span class="tiny muted">A: ' + esc(b.antecedent) + '</span>';
+        if (b.consequence) details += '<br><span class="tiny muted">C: ' + esc(b.consequence) + '</span>';
+      }
+      var measure;
+      if (type === "frequency") {
+        measure = '<strong>' + (b.count != null ? b.count + "×" : "—") + '</strong>';
+      } else if (type === "duration") {
+        measure = '<strong>' + (b.durationMin != null ? b.durationMin + " min" : "—") + '</strong>';
+      } else if (type === "interval") {
+        var pct = b.intervalsObserved ? Math.round(((b.intervalsOccurred || 0) / b.intervalsObserved) * 100) : null;
+        measure = '<strong>' + (b.intervalsObserved != null ? (b.intervalsOccurred || 0) + "/" + b.intervalsObserved : "—") + '</strong>' + (pct != null ? ' <span class="tiny muted">(' + pct + '%)</span>' : "");
+      } else {
+        measure = b.intensity ? '<span class="chip ' + (b.intensity === "High" ? "danger" : b.intensity === "Medium" ? "warn" : "success") + '">' + esc(b.intensity) + '</span>' : "—";
+        if (b.durationMin != null) measure += '<br><span class="tiny muted">' + b.durationMin + ' min</span>';
+      }
       return '<tr><td class="nowrap tiny">' + fmtDate(b.date) + (b.time ? '<br>' + esc(b.time) : "") + '</td>' +
         (showStudent ? '<td class="nowrap">' + esc(s ? fullName(s) : "—") + '</td>' : '') +
-        '<td class="small">' + esc(b.antecedent || "—") + '</td>' +
-        '<td class="small"><strong>' + esc(b.behavior || "—") + '</strong>' + (b.setting ? '<br><span class="tiny muted">' + esc(b.setting) + '</span>' : "") + '</td>' +
-        '<td class="small">' + esc(b.consequence || "—") + '</td>' +
-        '<td class="nowrap">' + intChip + (b.durationMin != null ? '<br><span class="tiny muted">' + b.durationMin + ' min</span>' : "") + '</td>' +
+        '<td class="nowrap"><span class="chip">' + esc(behaviorTypeShort(type)) + '</span></td>' +
+        '<td class="small">' + details + '</td>' +
+        '<td class="nowrap">' + measure + '</td>' +
         '<td class="right no-print"><button class="btn sm ghost" data-action="del-behavior" data-bid="' + b.id + '">✕</button></td></tr>';
     }).join("");
     return '<div class="table-wrap"><table>' + head + '<tbody>' + rows + '</tbody></table></div>';
@@ -997,7 +1098,9 @@
     var measureOpts = Object.keys(mmap).map(function (k) { return { value: k, label: mmap[k].label }; });
     measureOpts.push({ value: "__new__", label: "＋ New custom type…" });
     var areaList = S.GOAL_AREAS.map(function (a) { return '<option value="' + esc(a) + '"></option>'; }).join("");
+    var tplOpts = S.GOAL_TEMPLATES.map(function (t, i) { return '<option value="' + i + '">' + esc(t.label) + '</option>'; }).join("");
     return '<form data-form="goal" data-id="' + studentId + '" data-goal="' + (g.id || "") + '">' +
+      (g.id ? "" : '<label class="field no-print"><span>Start from a template (optional)</span><select data-action="goal-template"><option value="">— Choose a template to pre-fill —</option>' + tplOpts + '</select></label>') +
       '<div class="form-grid">' +
       '<label class="field"><span>Goal area</span><input name="area" list="goal-areas" value="' + esc(g.area || "") + '" placeholder="Reading, Math, or type your own…" />' +
       '<datalist id="goal-areas">' + areaList + '</datalist></label>' +
@@ -1031,22 +1134,49 @@
       '</form>';
   }
 
-  function behaviorForm(studentId) {
+  function behaviorForm(studentId, type) {
+    type = type || "abc";
     var students = S.getStudents();
+    var sid = studentId || (students[0] && students[0].id);
     var studentOpts = students.map(function (s) { return { value: s.id, label: fullName(s) }; });
-    return '<form data-form="behavior">' +
+    var typeOpts = Object.keys(S.BEHAVIOR_TYPES).map(function (k) { return { value: k, label: S.BEHAVIOR_TYPES[k] }; });
+
+    var fields = '';
+    if (type === "abc") {
+      fields =
+        '<label class="field full"><span>Antecedent (what happened before)</span><textarea name="antecedent" placeholder="What was going on right before?"></textarea></label>' +
+        '<label class="field full"><span>Behavior (what the student did)</span><textarea name="behavior" placeholder="Observable, measurable description" required></textarea></label>' +
+        '<label class="field full"><span>Consequence (what happened after)</span><textarea name="consequence" placeholder="How was it responded to?"></textarea></label>' +
+        '<label class="field"><span>Intensity</span><select name="intensity"><option value="">—</option>' + options(S.BEHAVIOR_INTENSITY) + '</select></label>' +
+        '<label class="field"><span>Duration (min, optional)</span><input type="number" name="durationMin" min="0" step="0.5" /></label>';
+    } else if (type === "frequency") {
+      fields =
+        '<label class="field full"><span>Behavior</span><textarea name="behavior" placeholder="e.g. Calling out" required></textarea></label>' +
+        '<label class="field"><span>Count (how many times)</span><input type="number" name="count" min="0" step="1" placeholder="e.g. 7" /></label>' +
+        '<label class="field"><span>Intensity (optional)</span><select name="intensity"><option value="">—</option>' + options(S.BEHAVIOR_INTENSITY) + '</select></label>';
+    } else if (type === "duration") {
+      fields =
+        '<label class="field full"><span>Behavior</span><textarea name="behavior" placeholder="e.g. Out of seat" required></textarea></label>' +
+        '<label class="field"><span>Total duration (min)</span><input type="number" name="durationMin" min="0" step="0.5" placeholder="e.g. 8" /></label>' +
+        '<label class="field"><span>Intensity (optional)</span><select name="intensity"><option value="">—</option>' + options(S.BEHAVIOR_INTENSITY) + '</select></label>';
+    } else if (type === "interval") {
+      fields =
+        '<label class="field full"><span>Behavior</span><textarea name="behavior" placeholder="e.g. On-task" required></textarea></label>' +
+        '<label class="field"><span># intervals observed</span><input type="number" name="intervalsObserved" min="1" step="1" placeholder="e.g. 10" /></label>' +
+        '<label class="field"><span># intervals behavior occurred</span><input type="number" name="intervalsOccurred" min="0" step="1" placeholder="e.g. 7" /></label>';
+    }
+
+    return '<div data-behavior-wrap><form data-form="behavior">' +
+      '<input type="hidden" name="type" value="' + esc(type) + '" />' +
+      '<label class="field no-print"><span>Log type</span><select data-action="behavior-type" data-sid="' + esc(sid || "") + '">' + options(typeOpts, type) + '</select></label>' +
       '<div class="form-grid">' +
-      '<label class="field full"><span>Student</span><select name="studentId">' + options(studentOpts, studentId || (students[0] && students[0].id)) + '</select></label>' +
+      '<label class="field full"><span>Student</span><select name="studentId">' + options(studentOpts, sid) + '</select></label>' +
       '<label class="field"><span>Date</span><input type="date" name="date" value="' + todayISO() + '" /></label>' +
       '<label class="field"><span>Time</span><input type="time" name="time" /></label>' +
       '<label class="field full"><span>Setting / activity</span><input name="setting" placeholder="e.g. Math — independent work" /></label>' +
-      '<label class="field full"><span>Antecedent (what happened before)</span><textarea name="antecedent" placeholder="What was going on right before?"></textarea></label>' +
-      '<label class="field full"><span>Behavior (what the student did)</span><textarea name="behavior" placeholder="Observable, measurable description" required></textarea></label>' +
-      '<label class="field full"><span>Consequence (what happened after)</span><textarea name="consequence" placeholder="How was it responded to?"></textarea></label>' +
-      '<label class="field"><span>Intensity</span><select name="intensity"><option value="">—</option>' + options(S.BEHAVIOR_INTENSITY) + '</select></label>' +
-      '<label class="field"><span>Duration (min)</span><input type="number" name="durationMin" min="0" step="0.5" /></label>' +
+      fields +
       '<label class="field full"><span>Notes</span><textarea name="notes"></textarea></label>' +
-      '</div></form>';
+      '</div></form></div>';
   }
 
   function readForm(formEl) {
@@ -1294,8 +1424,18 @@
       goalDataModal(t.getAttribute("data-id"), t.getAttribute("data-goal"));
     },
     "add-behavior": function (t) {
-      openModal("Log behavior incident (ABC)", behaviorForm(t ? t.getAttribute("data-id") : null),
+      openModal("Log behavior", behaviorForm(t ? t.getAttribute("data-id") : null, "abc"),
         '<button class="btn" data-close="1">Cancel</button><button class="btn primary" data-submit="behavior">Save</button>');
+    },
+    "download-sheet": function () {
+      var typeEl = document.getElementById("sheet-type");
+      var stuEl = document.getElementById("sheet-student");
+      var type = typeEl ? typeEl.value : "abc";
+      var sid = stuEl ? stuEl.value : "";
+      var s = sid ? S.getStudent(sid) : null;
+      var namePart = s ? fullName(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + "-" : "";
+      download("data-sheet-" + type + "-" + namePart + todayISO() + ".html", buildSheet(type, sid), "text/html");
+      toast("Sheet downloaded");
     },
     "del-behavior": function (t) {
       if (confirm("Delete this behavior log?")) { S.deleteBehavior(t.getAttribute("data-bid")); toast("Deleted"); render(); }
@@ -1465,6 +1605,29 @@
       // Capture the in-progress goal, then open the custom-type creator.
       pendingGoalCtx = captureGoalForm();
       openMeasureModal();
+      return;
+    }
+    if (action === "goal-template") {
+      if (el.value === "") return;
+      var tpl = S.GOAL_TEMPLATES[Number(el.value)];
+      var gf = el.closest("form");
+      if (tpl && gf) {
+        gf.querySelector('[name="area"]').value = tpl.area;
+        gf.querySelector('[name="description"]').value = tpl.description;
+        gf.querySelector('[name="measurement"]').value = tpl.measurement;
+        gf.querySelector('[name="target"]').value = tpl.target != null ? tpl.target : "";
+        gf.querySelector('[name="baseline"]').value = tpl.baseline || "";
+      }
+      el.value = "";
+      return;
+    }
+    if (action === "behavior-type") {
+      var wrap = el.closest("[data-behavior-wrap]");
+      if (wrap) {
+        var stuSel = wrap.querySelector('[name="studentId"]');
+        var sid = stuSel ? stuSel.value : "";
+        wrap.outerHTML = behaviorForm(sid, el.value);
+      }
       return;
     }
     if (action === "range-change") {
