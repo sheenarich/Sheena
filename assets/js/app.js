@@ -292,8 +292,10 @@
       '<div style="margin-top:3px"><strong>' + fmtDate(iso) + '</strong>' + chip + '</div></div>';
   }
 
+  var STATUS_CHIP = { met: "success", improving: "success", declining: "danger", flat: "warn", none: "" };
+
   function goalCardHTML(s, g) {
-    var mt = S.MEASUREMENT_TYPES[g.measurement] || S.MEASUREMENT_TYPES.percent;
+    var mt = S.measure(g.measurement);
     var pts = S.progressForGoal(g.id);
     var latest = pts.length ? S.valueOf(pts[pts.length - 1], g) : null;
     var statusChip = g.status === "met" ? '<span class="chip success">Met</span>' :
@@ -310,11 +312,18 @@
       '<p style="margin:8px 0 4px">' + esc(g.description) + '</p>' +
       '<div class="muted tiny">Baseline: ' + esc(g.baseline || "—") + ' · Measure: ' + esc(mt.label) +
       (g.target != null ? ' · Target: ' + esc(g.target + (mt.unit || "")) : "") + '</div></div>' +
-      '<div class="right no-print" style="min-width:120px">' +
+      '<div class="right no-print" style="min-width:140px">' +
       '<div class="tiny muted">Latest</div><div style="font-size:20px;font-weight:700">' + esc(latestTxt) + '</div>' +
-      '<div class="flex gap-sm" style="justify-content:flex-end;margin-top:6px">' +
+      '<div class="flex gap-sm wrap" style="justify-content:flex-end;margin-top:6px">' +
+      (pts.length ? '<button class="btn sm" data-action="quick-repeat" data-id="' + s.id + '" data-goal="' + g.id + '" title="Log today with the same value as last time">↻ Repeat</button>' : '') +
       '<button class="btn sm primary" data-action="quick-data" data-id="' + s.id + '" data-goal="' + g.id + '">＋ Data</button>' +
       '</div></div></div>';
+
+    // Auto-generated progress summary
+    var sum = S.summarize(g, pts, s.firstName || "Student");
+    var chipCls = STATUS_CHIP[sum.status] || "";
+    html += '<div class="summary-box mt-1"><span class="chip ' + chipCls + '">' + esc(sum.label) + '</span> ' +
+      '<span class="small">' + esc(sum.text) + '</span></div>';
 
     // mini chart
     if (pts.length) {
@@ -322,16 +331,35 @@
       var opts = { unit: mt.unit };
       if (g.measurement === "percent") { opts.yMax = 100; opts.yMin = 0; }
       if (g.measurement === "prompt" || g.measurement === "rating") { opts.yMax = 5; opts.yMin = 0; }
+      if (mt.custom && mt.max) { opts.yMax = mt.max; opts.yMin = 0; }
       html += '<div class="chart-wrap mt-1">' + C.lineChart(chartPts, g.target, opts) + '</div>';
-      html += '<div class="flex-between no-print"><span class="tiny muted">' + pts.length + ' data point' + (pts.length === 1 ? "" : "s") + '</span>' +
-        '<span><button class="btn sm ghost" data-action="view-goal-data" data-id="' + s.id + '" data-goal="' + g.id + '">View/edit data</button> ' +
-        '<button class="btn sm ghost" data-action="edit-goal" data-id="' + s.id + '" data-goal="' + g.id + '">Edit goal</button> ' +
-        '<button class="btn sm ghost" data-action="delete-goal" data-id="' + s.id + '" data-goal="' + g.id + '">Delete</button></span></div>';
-    } else {
-      html += '<div class="flex-between no-print mt-1"><span class="tiny muted">No data yet</span>' +
-        '<span><button class="btn sm ghost" data-action="edit-goal" data-id="' + s.id + '" data-goal="' + g.id + '">Edit goal</button> ' +
-        '<button class="btn sm ghost" data-action="delete-goal" data-id="' + s.id + '" data-goal="' + g.id + '">Delete</button></span></div>';
     }
+
+    // Objectives / benchmarks
+    var objs = g.objectives || [];
+    html += '<div class="mt-1"><div class="flex-between"><span class="tiny muted" style="font-weight:700;text-transform:uppercase;letter-spacing:.04em">Objectives</span>' +
+      '<button class="btn sm ghost no-print" data-action="add-objective" data-id="' + s.id + '" data-goal="' + g.id + '">＋ Add objective</button></div>';
+    if (!objs.length) {
+      html += '<p class="tiny muted mb-0">No short-term objectives yet.</p>';
+    } else {
+      html += '<ul class="obj-list">' + objs.map(function (o) {
+        var done = o.status === "met";
+        return '<li class="obj-item' + (done ? ' done' : '') + '">' +
+          '<button class="obj-check no-print" data-action="toggle-objective" data-id="' + s.id + '" data-goal="' + g.id + '" data-obj="' + o.id + '" aria-label="Toggle met">' + (done ? '☑' : '☐') + '</button>' +
+          '<span>' + esc(o.text) + '</span>' +
+          (done ? ' <span class="chip success tiny">Met</span>' : '') +
+          '<button class="btn sm ghost no-print obj-del" data-action="del-objective" data-id="' + s.id + '" data-goal="' + g.id + '" data-obj="' + o.id + '" aria-label="Remove">✕</button>' +
+          '</li>';
+      }).join("") + '</ul>';
+    }
+    html += '</div>';
+
+    // Footer actions
+    html += '<div class="flex-between no-print mt-1" style="border-top:1px solid var(--border);padding-top:10px">' +
+      '<span class="tiny muted">' + (pts.length ? pts.length + ' data point' + (pts.length === 1 ? "" : "s") : "No data yet") + '</span>' +
+      '<span>' + (pts.length ? '<button class="btn sm ghost" data-action="view-goal-data" data-id="' + s.id + '" data-goal="' + g.id + '">View/edit data</button> ' : '') +
+      '<button class="btn sm ghost" data-action="edit-goal" data-id="' + s.id + '" data-goal="' + g.id + '">Edit goal</button> ' +
+      '<button class="btn sm ghost" data-action="delete-goal" data-id="' + s.id + '" data-goal="' + g.id + '">Delete</button></span></div>';
 
     html += '</div>';
     return html;
@@ -361,7 +389,7 @@
     } else {
       html += '<div class="table-wrap"><table><thead><tr><th>Date</th><th>Student</th><th>Goal area</th><th>Value</th><th></th></tr></thead><tbody>';
       html += recent.slice(0, 15).map(function (r) {
-        var mt = S.MEASUREMENT_TYPES[r.g.measurement] || {};
+        var mt = S.measure(r.g.measurement);
         var val = S.valueOf(r.p, r.g);
         return '<tr><td class="nowrap">' + fmtDate(r.p.date) + '</td><td>' + esc(fullName(r.s)) + '</td>' +
           '<td><span class="chip purple">' + esc(r.g.area) + '</span></td>' +
@@ -413,8 +441,13 @@
     if (m === "rating") {
       return '<label class="field"><span>Rating (0–5)</span><input type="number" name="score" min="0" max="5" step="1" placeholder="0–5" /></label>';
     }
-    // frequency
-    return '<label class="field"><span>Count</span><input type="number" name="score" min="0" step="1" placeholder="e.g. 4" /></label>';
+    if (m === "frequency") {
+      return '<label class="field"><span>Count</span><input type="number" name="score" min="0" step="1" placeholder="e.g. 4" /></label>';
+    }
+    // custom measure — single numeric value, labeled by its name/unit
+    var mt = S.measure(m);
+    var lbl = mt.label + (mt.unit ? " (" + mt.unit + ")" : "");
+    return '<label class="field"><span>' + esc(lbl) + '</span><input type="number" name="score" step="0.1" placeholder="Enter a number" /></label>';
   }
 
   function truncate(s, n) { s = s || ""; return s.length > n ? s.slice(0, n - 1) + "…" : s; }
@@ -495,7 +528,7 @@
           rows += '<tr><td>' + esc(fullName(s)) + '</td><td colspan="5" class="muted small">No goals</td></tr>';
         }
         s.goals.forEach(function (g, i) {
-          var mt = S.MEASUREMENT_TYPES[g.measurement] || {};
+          var mt = S.measure(g.measurement);
           var pts = S.progressForGoal(g.id);
           var latest = pts.length ? S.valueOf(pts[pts.length - 1], g) : null;
           rows += '<tr><td>' + (i === 0 ? esc(fullName(s)) : "") + '</td>' +
@@ -522,19 +555,29 @@
     html += '<div class="grid cols-2 mt-2">' + dateBox("Annual review", s.dates.annualReview) + dateBox("Re-evaluation", s.dates.reevaluation) + '</div>';
 
     s.goals.forEach(function (g) {
-      var mt = S.MEASUREMENT_TYPES[g.measurement] || {};
+      var mt = S.measure(g.measurement);
       var pts = S.progressForGoal(g.id);
       html += '<hr class="sep"><div><span class="chip purple">' + esc(g.area) + '</span>' +
         '<p style="margin:8px 0 4px"><strong>' + esc(g.description) + '</strong></p>' +
         '<div class="muted tiny mb-2">Baseline: ' + esc(g.baseline || "—") + ' · Target: ' + esc(g.target != null ? g.target + (mt.unit || "") : "—") + ' · ' + pts.length + ' data points</div>';
+      // Narrative progress summary
+      var sum = S.summarize(g, pts, s.firstName || "Student");
+      html += '<div class="summary-box mb-2"><span class="chip ' + (STATUS_CHIP[sum.status] || "") + '">' + esc(sum.label) + '</span> <span class="small">' + esc(sum.text) + '</span></div>';
       if (pts.length) {
         var chartPts = pts.map(function (p) { return { date: p.date, value: S.valueOf(p, g) }; });
         var opts = { unit: mt.unit };
         if (g.measurement === "percent") { opts.yMax = 100; opts.yMin = 0; }
         if (g.measurement === "prompt" || g.measurement === "rating") { opts.yMax = 5; opts.yMin = 0; }
+        if (mt.custom && mt.max) { opts.yMax = mt.max; opts.yMin = 0; }
         html += '<div class="chart-wrap">' + C.lineChart(chartPts, g.target, opts) + '</div>';
       } else {
         html += '<p class="muted small">No data collected yet.</p>';
+      }
+      // Objectives
+      var objs = g.objectives || [];
+      if (objs.length) {
+        html += '<div class="small" style="margin-top:8px"><strong>Objectives:</strong><ul style="margin:4px 0">' +
+          objs.map(function (o) { return '<li>' + (o.status === "met" ? "✓ " : "○ ") + esc(o.text) + (o.status === "met" ? " (met)" : "") + '</li>'; }).join("") + '</ul></div>';
       }
       html += '</div>';
     });
@@ -572,6 +615,25 @@
 
     html += '</div>';
 
+    // Custom measurement types
+    var custom = S.customMeasures();
+    html += '<h3 class="section-title">Measurement types</h3><div class="card">' +
+      '<div class="flex-between"><p class="small muted mb-0">Built-in types plus any you create. Custom types are logged as a single number.</p>' +
+      '<button class="btn sm primary no-print" data-action="add-measure">＋ New type</button></div>';
+    html += '<div class="flex wrap gap-sm mt-2">';
+    Object.keys(S.MEASUREMENT_TYPES).forEach(function (k) {
+      html += '<span class="chip">' + esc(S.MEASUREMENT_TYPES[k].label) + '</span>';
+    });
+    html += '</div>';
+    if (custom.length) {
+      html += '<div class="table-wrap mt-2"><table><tbody>' + custom.map(function (m) {
+        return '<tr><td><span class="chip purple">' + esc(m.label) + '</span></td>' +
+          '<td class="small muted">' + (m.unit ? "unit: " + esc(m.unit) : "") + (m.max != null ? " · max " + esc(m.max) : "") + '</td>' +
+          '<td class="right no-print"><button class="btn sm ghost" data-action="del-measure" data-key="' + esc(m.key) + '">Remove</button></td></tr>';
+      }).join("") + '</tbody></table></div>';
+    }
+    html += '</div>';
+
     html += '<h3 class="section-title">Other</h3><div class="card"><div class="flex gap-sm wrap">';
     if (S.isEmpty()) html += '<button class="btn" data-action="load-sample">Load sample data</button>';
     html += '<button class="btn danger" data-action="clear-all">Delete ALL data</button>';
@@ -601,19 +663,34 @@
 
   function goalForm(studentId, g) {
     g = g || {};
+    var mmap = S.measures();
+    var measureOpts = Object.keys(mmap).map(function (k) { return { value: k, label: mmap[k].label }; });
+    measureOpts.push({ value: "__new__", label: "＋ New custom type…" });
+    var areaList = S.GOAL_AREAS.map(function (a) { return '<option value="' + esc(a) + '"></option>'; }).join("");
     return '<form data-form="goal" data-id="' + studentId + '" data-goal="' + (g.id || "") + '">' +
       '<div class="form-grid">' +
-      '<label class="field"><span>Goal area</span><select name="area">' + options(S.GOAL_AREAS, g.area) + '</select></label>' +
+      '<label class="field"><span>Goal area</span><input name="area" list="goal-areas" value="' + esc(g.area || "") + '" placeholder="Reading, Math, or type your own…" />' +
+      '<datalist id="goal-areas">' + areaList + '</datalist></label>' +
       '<label class="field"><span>Status</span><select name="status">' + options([
         { value: "active", label: "Active" }, { value: "met", label: "Met" }, { value: "discontinued", label: "Discontinued" }
       ], g.status || "active") + '</select></label>' +
       '<label class="field full"><span>Goal / objective statement</span><textarea name="description" placeholder="Given…, [Student] will…, with __% accuracy across __ sessions.">' + esc(g.description || "") + '</textarea></label>' +
       '<label class="field"><span>Baseline</span><input name="baseline" value="' + esc(g.baseline || "") + '" placeholder="e.g. 62% accuracy" /></label>' +
-      '<label class="field"><span>Measurement</span><select name="measurement">' + options(
-        Object.keys(S.MEASUREMENT_TYPES).map(function (k) { return { value: k, label: S.MEASUREMENT_TYPES[k].label }; }), g.measurement || "percent") + '</select></label>' +
+      '<label class="field"><span>Measurement</span><select name="measurement" data-action="measure-change">' + options(measureOpts, g.measurement || "percent") + '</select></label>' +
       '<label class="field"><span>Target (number)</span><input type="number" step="0.1" name="target" value="' + esc(g.target != null ? g.target : "") + '" placeholder="e.g. 90" /></label>' +
       '</div>' +
-      '<p class="tiny muted">Tip: for "Percent" use the target % (e.g. 90). For "Prompt level" the max is 5 = Independent.</p>' +
+      '<p class="tiny muted">Tip: for "Percent" use the target % (e.g. 90). For "Prompt level" the max is 5 = Independent. Pick "New custom type…" to define your own measure.</p>' +
+      '</form>';
+  }
+
+  function measureForm() {
+    return '<form data-form="measure">' +
+      '<div class="form-grid">' +
+      '<label class="field full"><span>Name</span><input name="label" placeholder="e.g. Words per minute" required /></label>' +
+      '<label class="field"><span>Unit (optional)</span><input name="unit" placeholder="e.g. wpm, sec, pts" /></label>' +
+      '<label class="field"><span>Chart max (optional)</span><input type="number" name="max" placeholder="e.g. 200" /></label>' +
+      '</div>' +
+      '<p class="tiny muted">Custom types are logged as a single number. Leave "chart max" blank to auto-scale.</p>' +
       '</form>';
   }
 
@@ -655,7 +732,7 @@
     var s = S.getStudent(studentId);
     var g = S.getGoal(studentId, goalId);
     if (!g) return;
-    var mt = S.MEASUREMENT_TYPES[g.measurement] || {};
+    var mt = S.measure(g.measurement);
     var pts = S.progressForGoal(goalId).slice().reverse();
     var body = '<p class="small muted">' + esc(fullName(s)) + ' · ' + esc(g.area) + '</p>';
     if (!pts.length) {
@@ -685,6 +762,28 @@
     setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
   }
 
+  // Goal + custom-measure modal plumbing (supports creating a type mid-goal-entry).
+  var pendingGoalCtx = null;
+  function openGoalModal(sid, g) {
+    openModal(g && g.id ? "Edit goal" : "Add IEP goal", goalForm(sid, g),
+      '<button class="btn" data-close="1">Cancel</button><button class="btn primary" data-submit="goal">Save</button>');
+  }
+  function openMeasureModal() {
+    openModal("New measurement type", measureForm(),
+      '<button class="btn" data-action="cancel-measure">Cancel</button><button class="btn primary" data-submit="measure">Create</button>');
+  }
+  function captureGoalForm() {
+    var form = $('form[data-form="goal"]');
+    if (!form) return null;
+    var d = readForm(form);
+    return {
+      id: form.getAttribute("data-goal") || undefined,
+      sid: form.getAttribute("data-id"),
+      area: d.area, status: d.status, description: d.description,
+      baseline: d.baseline, measurement: d.measurement, target: d.target
+    };
+  }
+
   var actions = {
     "add-student": function () {
       openModal("Add student", studentForm(),
@@ -705,14 +804,10 @@
     },
     "open-student": function (t) { go("students", t.getAttribute("data-id")); },
     "back-students": function () { go("students", null); },
-    "add-goal": function (t) {
-      openModal("Add IEP goal", goalForm(t.getAttribute("data-id")),
-        '<button class="btn" data-close="1">Cancel</button><button class="btn primary" data-submit="goal">Save</button>');
-    },
+    "add-goal": function (t) { openGoalModal(t.getAttribute("data-id"), null); },
     "edit-goal": function (t) {
       var sid = t.getAttribute("data-id"), gid = t.getAttribute("data-goal");
-      openModal("Edit goal", goalForm(sid, S.getGoal(sid, gid)),
-        '<button class="btn" data-close="1">Cancel</button><button class="btn primary" data-submit="goal">Save</button>');
+      openGoalModal(sid, S.getGoal(sid, gid));
     },
     "delete-goal": function (t) {
       var sid = t.getAttribute("data-id"), gid = t.getAttribute("data-goal");
@@ -731,6 +826,41 @@
     "quick-data": function (t) {
       var sid = t.getAttribute("data-id"), gid = t.getAttribute("data-goal");
       openModal("Log data point", '<div class="card" style="border:none;box-shadow:none;padding:0">' + dataFormHTML(sid, gid) + '</div>', null);
+    },
+    "quick-repeat": function (t) {
+      var gid = t.getAttribute("data-goal"), sid = t.getAttribute("data-id");
+      var pts = S.progressForGoal(gid);
+      if (!pts.length) { toast("No previous value to repeat"); return; }
+      var last = pts[pts.length - 1];
+      S.addProgress({ studentId: sid, goalId: gid, date: todayISO(), score: last.score, total: last.total, notes: "" });
+      toast("Logged today — same as last time");
+      render();
+    },
+    "add-objective": function (t) {
+      var sid = t.getAttribute("data-id"), gid = t.getAttribute("data-goal");
+      openModal("Add objective / benchmark",
+        '<form data-form="objective" data-id="' + sid + '" data-goal="' + gid + '">' +
+        '<label class="field"><span>Short-term objective</span><textarea name="text" placeholder="e.g. Read 2nd-grade passages with 90% accuracy" required></textarea></label></form>',
+        '<button class="btn" data-close="1">Cancel</button><button class="btn primary" data-submit="objective">Add</button>');
+    },
+    "toggle-objective": function (t) {
+      S.toggleObjective(t.getAttribute("data-id"), t.getAttribute("data-goal"), t.getAttribute("data-obj"));
+      render();
+    },
+    "del-objective": function (t) {
+      S.deleteObjective(t.getAttribute("data-id"), t.getAttribute("data-goal"), t.getAttribute("data-obj"));
+      render();
+    },
+    "add-measure": function () { openMeasureModal(); },
+    "cancel-measure": function () {
+      var ctx = pendingGoalCtx; pendingGoalCtx = null;
+      closeModal();
+      if (ctx) openGoalModal(ctx.sid, ctx);
+    },
+    "del-measure": function (t) {
+      if (confirm("Remove this custom measurement type? Goals already using it will show values as a plain number.")) {
+        S.deleteCustomMeasure(t.getAttribute("data-key")); toast("Removed"); render();
+      }
     },
     "view-goal-data": function (t) {
       goalDataModal(t.getAttribute("data-id"), t.getAttribute("data-goal"));
@@ -818,6 +948,29 @@
       if (!d.behavior.trim()) { alert("Please describe the behavior."); return; }
       S.addBehavior(d);
       closeModal(); toast("Incident logged"); render();
+    },
+    objective: function () {
+      var form = $('form[data-form="objective"]');
+      var d = readForm(form);
+      if (!d.text.trim()) { alert("Please enter the objective."); return; }
+      S.addObjective(form.getAttribute("data-id"), form.getAttribute("data-goal"), d.text.trim());
+      closeModal(); toast("Objective added"); render();
+    },
+    measure: function () {
+      var form = $('form[data-form="measure"]');
+      var d = readForm(form);
+      if (!d.label.trim()) { alert("Please name the measurement type."); return; }
+      var m = S.addCustomMeasure(d);
+      closeModal();
+      if (pendingGoalCtx) {
+        // Came from the goal form — reopen it with the new type selected.
+        var ctx = pendingGoalCtx; pendingGoalCtx = null;
+        ctx.measurement = m.key;
+        openGoalModal(ctx.sid, ctx);
+        toast("Type created");
+      } else {
+        toast("Type created"); render();
+      }
     }
   };
 
@@ -857,6 +1010,12 @@
     if (action === "report-student") {
       state.reportId = el.value;
       render();
+      return;
+    }
+    if (action === "measure-change" && el.value === "__new__") {
+      // Capture the in-progress goal, then open the custom-type creator.
+      pendingGoalCtx = captureGoalForm();
+      openMeasureModal();
       return;
     }
   });

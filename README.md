@@ -12,8 +12,13 @@ your device.**
 - **Students** — a roster with each student's grade, disability category,
   case manager, and key IEP dates.
 - **IEP Goals + Progress Data** — write measurable goals (percent-correct,
-  frequency, duration, prompt level, or rating), log data points, and see an
-  automatic progress-over-time chart with the target line drawn in.
+  frequency, duration, prompt level, rating, or your own **custom measurement
+  types**), log data points, and see an automatic progress-over-time chart with
+  the target line drawn in. One-tap **"Repeat"** logs today with the same value
+  as last time.
+- **Short-term objectives** — break each goal into benchmarks you can check off.
+- **Auto progress summaries** — plain-English narrative for each goal (trend,
+  change, and % of the way to target) shown on the goal and in reports.
 - **Behavior Tracking (ABC)** — Antecedent → Behavior → Consequence logs with
   intensity and duration, plus frequency-by-student and by-intensity summaries.
 - **Accommodations** — record accommodations per student, organized by category.

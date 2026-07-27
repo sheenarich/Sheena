@@ -46,23 +46,31 @@
 
   // ---- Persistence ----------------------------------------------------------
   function emptyData() {
-    return { schemaVersion: SCHEMA_VERSION, students: [], progress: [], behaviors: [] };
+    return { schemaVersion: SCHEMA_VERSION, students: [], progress: [], behaviors: [], settings: { customMeasures: [] } };
   }
 
   var _cache = null;
 
   function load() {
-    if (_cache) return _cache;
-    try {
-      var raw = localStorage.getItem(KEY);
-      _cache = raw ? JSON.parse(raw) : emptyData();
-    } catch (e) {
-      console.error("Could not read saved data:", e);
-      _cache = emptyData();
+    if (!_cache) {
+      try {
+        var raw = localStorage.getItem(KEY);
+        _cache = raw ? JSON.parse(raw) : emptyData();
+      } catch (e) {
+        console.error("Could not read saved data:", e);
+        _cache = emptyData();
+      }
     }
+    // Normalize on every load so any code path (import, sample) stays valid.
     if (!_cache.students) _cache.students = [];
     if (!_cache.progress) _cache.progress = [];
     if (!_cache.behaviors) _cache.behaviors = [];
+    if (!_cache.settings) _cache.settings = { customMeasures: [] };
+    if (!_cache.settings.customMeasures) _cache.settings.customMeasures = [];
+    // Backfill objectives array on older goals.
+    _cache.students.forEach(function (s) {
+      (s.goals || []).forEach(function (g) { if (!g.objectives) g.objectives = []; });
+    });
     return _cache;
   }
 
@@ -142,6 +150,7 @@
       measurement: fields.measurement || "percent",
       target: fields.target === "" || fields.target == null ? null : Number(fields.target),
       status: fields.status || "active",
+      objectives: [],
       createdAt: (new Date()).toISOString()
     };
     s.goals.push(g);
@@ -182,6 +191,128 @@
       s.goals.forEach(function (g) { out.push({ student: s, goal: g }); });
     });
     return out;
+  }
+
+  // ---- Objectives / benchmarks (nested under a goal) ------------------------
+  function addObjective(studentId, goalId, text) {
+    var g = getGoal(studentId, goalId);
+    if (!g) return null;
+    if (!g.objectives) g.objectives = [];
+    var o = { id: uid(), text: text || "", status: "active" };
+    g.objectives.push(o);
+    save();
+    return o;
+  }
+  function toggleObjective(studentId, goalId, objId) {
+    var g = getGoal(studentId, goalId);
+    if (!g || !g.objectives) return;
+    var o = g.objectives.filter(function (x) { return x.id === objId; })[0];
+    if (!o) return;
+    o.status = o.status === "met" ? "active" : "met";
+    save();
+  }
+  function deleteObjective(studentId, goalId, objId) {
+    var g = getGoal(studentId, goalId);
+    if (!g || !g.objectives) return;
+    g.objectives = g.objectives.filter(function (x) { return x.id !== objId; });
+    save();
+  }
+
+  // ---- Measurement types (built-in + user-defined) --------------------------
+  function measures() {
+    var out = {};
+    Object.keys(MEASUREMENT_TYPES).forEach(function (k) { out[k] = MEASUREMENT_TYPES[k]; });
+    load().settings.customMeasures.forEach(function (m) {
+      out[m.key] = { label: m.label, unit: m.unit || "", hasTotal: false, max: m.max != null ? m.max : null, custom: true };
+    });
+    return out;
+  }
+  function measure(key) { return measures()[key] || MEASUREMENT_TYPES.percent; }
+  function customMeasures() { return load().settings.customMeasures.slice(); }
+  function addCustomMeasure(fields) {
+    function slug(t) { return String(t || "").toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "").slice(0, 24) || "measure"; }
+    var existing = measures();
+    var base = "c_" + slug(fields.label), key = base, i = 1;
+    while (existing[key]) { key = base + "_" + i; i++; }
+    var m = {
+      key: key,
+      label: fields.label || "Custom measure",
+      unit: fields.unit || "",
+      max: fields.max === "" || fields.max == null ? null : Number(fields.max)
+    };
+    load().settings.customMeasures.push(m);
+    save();
+    return m;
+  }
+  function deleteCustomMeasure(key) {
+    load().settings.customMeasures = load().settings.customMeasures.filter(function (m) { return m.key !== key; });
+    save();
+  }
+
+  // ---- Progress summary (auto-generated narrative) --------------------------
+  function regressionSlope(vals) {
+    var n = vals.length;
+    if (n < 2) return 0;
+    var sx = 0, sy = 0, sxy = 0, sxx = 0;
+    for (var i = 0; i < n; i++) { sx += i; sy += vals[i]; sxy += i * vals[i]; sxx += i * i; }
+    var d = n * sxx - sx * sx;
+    if (d === 0) return 0;
+    return (n * sxy - sx * sy) / d;
+  }
+  function fmtShort(iso) {
+    var p = (iso || "").split("-");
+    return p.length < 3 ? iso : (parseInt(p[1], 10) + "/" + parseInt(p[2], 10) + "/" + p[0].slice(2));
+  }
+  // Reads a goal's data points and returns { status, label, text, met, pct, latest }.
+  function summarize(goal, points, name) {
+    var m = measure(goal.measurement), unit = m.unit || "";
+    var who = name || "Performance";
+    if (!points || !points.length) return { status: "none", label: "No data", text: "No data collected yet." };
+    var vals = points.map(function (p) { return valueOf(p, goal); }).filter(function (v) { return v != null && !isNaN(v); });
+    if (!vals.length) return { status: "none", label: "No data", text: "No numeric data recorded yet." };
+
+    function fmtVal(v) {
+      if (goal.measurement === "prompt") {
+        var pl = PROMPT_LEVELS.filter(function (p) { return p.value === v; })[0];
+        return pl ? pl.label : String(v);
+      }
+      return v + unit;
+    }
+
+    var first = vals[0], last = vals[vals.length - 1];
+    var change = Math.round((last - first) * 10) / 10;
+    var slope = regressionSlope(vals);
+    var higherBetter = goal.target != null ? goal.target >= first : slope >= 0;
+    var dirWord = slope > 0.01 ? (higherBetter ? "improving" : "increasing")
+      : slope < -0.01 ? (higherBetter ? "declining" : "decreasing")
+        : "holding steady";
+
+    var met = false, pct = null;
+    if (goal.target != null) {
+      met = higherBetter ? last >= goal.target : last <= goal.target;
+      var denom = goal.target - first;
+      pct = denom === 0 ? (met ? 100 : 0) : Math.max(0, Math.min(100, Math.round(((last - first) / denom) * 100)));
+    }
+
+    var status = met ? "met"
+      : (slope > 0.01 && higherBetter) ? "improving"
+        : (slope < -0.01 && higherBetter) ? "declining"
+          : "flat";
+    var label = met ? "Target met" : status === "improving" ? "On track" : status === "declining" ? "Declining" : "Monitor";
+
+    var range = points.length > 1 ? " (" + fmtShort(points[0].date) + "–" + fmtShort(points[points.length - 1].date) + ")" : "";
+    var changeStr = goal.measurement === "prompt"
+      ? (Math.abs(change) + " level" + (Math.abs(change) === 1 ? "" : "s") + (change >= 0 ? " more independent" : " less independent"))
+      : ((change >= 0 ? "+" : "") + change + unit);
+    var text = "Across " + points.length + " session" + (points.length === 1 ? "" : "s") + range + ", " +
+      who + " went from " + fmtVal(first) + " to " + fmtVal(last) +
+      (vals.length > 1 ? " (" + changeStr + ")" : "") + ". Trend is " + dirWord + ". ";
+    if (goal.target != null) {
+      if (met) text += "The target of " + fmtVal(goal.target) + " has been met. 🎯";
+      else if (pct != null && pct > 0) text += "About " + pct + "% of the way from baseline to the " + fmtVal(goal.target) + " target.";
+      else text += "Not yet progressing toward the " + fmtVal(goal.target) + " target.";
+    }
+    return { status: status, label: label, text: text, met: met, pct: pct, latest: last, change: change };
   }
 
   // ---- Accommodations -------------------------------------------------------
@@ -285,7 +416,8 @@
         schemaVersion: SCHEMA_VERSION,
         students: incoming.students || [],
         progress: incoming.progress || [],
-        behaviors: incoming.behaviors || []
+        behaviors: incoming.behaviors || [],
+        settings: incoming.settings && incoming.settings.customMeasures ? incoming.settings : { customMeasures: [] }
       };
     } else {
       // merge: append, giving imported records fresh ids to avoid collisions.
@@ -312,6 +444,14 @@
         b.studentId = idMap[b.studentId] || b.studentId;
         d.behaviors.push(b);
       });
+      // Merge any custom measurement types not already present.
+      if (incoming.settings && incoming.settings.customMeasures) {
+        var haveKeys = {};
+        d.settings.customMeasures.forEach(function (m) { haveKeys[m.key] = true; });
+        incoming.settings.customMeasures.forEach(function (m) {
+          if (!haveKeys[m.key]) d.settings.customMeasures.push(m);
+        });
+      }
     }
     save();
   }
@@ -342,8 +482,11 @@
         { id: "a3", category: "Setting", text: "Small-group setting for state testing" }
       ],
       goals: [
-        { id: "g-ava-read", area: "Reading", description: "Given a 3rd-grade passage, Ava will read aloud with 90% accuracy across 3 consecutive sessions.", baseline: "62% accuracy", measurement: "percent", target: 90, status: "active", createdAt: "2026-01-10" },
-        { id: "g-ava-math", area: "Math", description: "Ava will solve single-digit multiplication facts with 80% accuracy.", baseline: "40%", measurement: "percent", target: 80, status: "active", createdAt: "2026-01-10" }
+        { id: "g-ava-read", area: "Reading", description: "Given a 3rd-grade passage, Ava will read aloud with 90% accuracy across 3 consecutive sessions.", baseline: "62% accuracy", measurement: "percent", target: 90, status: "active", createdAt: "2026-01-10", objectives: [
+          { id: "o-ava-1", text: "Read 2nd-grade passages with 90% accuracy", status: "met" },
+          { id: "o-ava-2", text: "Read 3rd-grade passages with 80% accuracy", status: "active" }
+        ] },
+        { id: "g-ava-math", area: "Math", description: "Ava will solve single-digit multiplication facts with 80% accuracy.", baseline: "40%", measurement: "percent", target: 80, status: "active", createdAt: "2026-01-10", objectives: [] }
       ],
       createdAt: "2026-01-10"
     };
@@ -415,7 +558,7 @@
       { id: "bh3", studentId: "stu-ava", date: iso(2026, 6, 15), time: "09:05", setting: "Morning arrival", antecedent: "Unstructured transition", behavior: "Difficulty starting work", consequence: "Visual checklist provided", intensity: "Low", durationMin: 3, notes: "Checklist helped." }
     ];
 
-    return { schemaVersion: SCHEMA_VERSION, students: [s1, s2, s3], progress: progress, behaviors: behaviors };
+    return { schemaVersion: SCHEMA_VERSION, students: [s1, s2, s3], progress: progress, behaviors: behaviors, settings: { customMeasures: [] } };
   }
 
   // ---- Public API -----------------------------------------------------------
@@ -430,6 +573,10 @@
     getStudents: getStudents, getStudent: getStudent, addStudent: addStudent,
     updateStudent: updateStudent, deleteStudent: deleteStudent,
     addGoal: addGoal, updateGoal: updateGoal, deleteGoal: deleteGoal, getGoal: getGoal, allGoals: allGoals,
+    addObjective: addObjective, toggleObjective: toggleObjective, deleteObjective: deleteObjective,
+    measures: measures, measure: measure, customMeasures: customMeasures,
+    addCustomMeasure: addCustomMeasure, deleteCustomMeasure: deleteCustomMeasure,
+    summarize: summarize,
     addAccommodation: addAccommodation, deleteAccommodation: deleteAccommodation,
     addProgress: addProgress, deleteProgress: deleteProgress, progressForGoal: progressForGoal, valueOf: valueOf,
     addBehavior: addBehavior, deleteBehavior: deleteBehavior, behaviorsForStudent: behaviorsForStudent, allBehaviors: allBehaviors,
