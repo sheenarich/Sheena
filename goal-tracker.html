@@ -669,6 +669,61 @@ svg.chart { display: block; max-width: 100%; }
     return { status: status, label: label, text: text, met: met, pct: pct, latest: last, change: change };
   }
 
+  // Plain-language, jargon-free progress summary for families.
+  function friendlyAreaPhrase(area) {
+    var map = {
+      "Reading": "reading", "Writing": "writing", "Math": "math",
+      "Communication/Language": "communicating and using language",
+      "Behavior/Social-Emotional": "focusing and managing feelings",
+      "Adaptive/Daily Living": "everyday independence skills",
+      "Motor Skills": "movement and coordination",
+      "Study/Organization Skills": "staying organized",
+      "Transition/Vocational": "getting ready for life after school"
+    };
+    return map[area] || (area || "this skill").toLowerCase();
+  }
+  function parentValuePhrase(v, goal) {
+    var m = goal.measurement;
+    if (m === "percent") return "getting it right about " + Math.round(v) + "% of the time";
+    if (m === "duration") return "staying with it for about " + v + " minute" + (v === 1 ? "" : "s");
+    if (m === "frequency") return "about " + v + " time" + (v === 1 ? "" : "s");
+    if (m === "prompt") {
+      var pm = { 5: "doing it all on their own", 4: "doing it with just a verbal reminder", 3: "doing it with a small gesture cue", 2: "doing it with a model to copy", 1: "doing it with a little hands-on help", 0: "doing it with full hands-on help" };
+      return pm[v] || ("at level " + v);
+    }
+    var mt = measure(m);
+    return "at about " + v + (mt.unit || "");
+  }
+  function parentSummary(goal, points, name) {
+    name = name || "Your child";
+    var focus = friendlyAreaPhrase(goal.area);
+    if (!points || !points.length) {
+      return "We're working with " + name + " on " + focus + ". We're just getting started gathering information, so we'll have progress to share with you soon.";
+    }
+    var vals = points.map(function (p) { return valueOf(p, goal); }).filter(function (v) { return v != null && !isNaN(v); });
+    if (!vals.length) return "We're working with " + name + " on " + focus + ".";
+    var first = vals[0], last = vals[vals.length - 1];
+    var slope = regressionSlope(vals);
+    var higherBetter = goal.target != null ? goal.target >= first : slope >= 0;
+    var txt = "We're helping " + name + " with " + focus + ". ";
+    if (vals.length > 1) {
+      txt += "When we started, " + name + " was " + parentValuePhrase(first, goal) + ", and now " + name + " is " + parentValuePhrase(last, goal) + ". ";
+      var improving = higherBetter ? slope > 0.01 : slope < -0.01;
+      var declining = higherBetter ? slope < -0.01 : slope > 0.01;
+      if (improving) txt += "That's wonderful progress! ";
+      else if (declining) txt += "This one has dipped a little recently, so the team is giving it some extra attention. ";
+      else txt += "This is holding steady right now. ";
+    } else {
+      txt += name + " is currently " + parentValuePhrase(last, goal) + ". ";
+    }
+    if (goal.target != null) {
+      var met = higherBetter ? last >= goal.target : last <= goal.target;
+      if (met) txt += "🎉 " + name + " has reached this goal!";
+      else txt += "The goal we're aiming for is " + parentValuePhrase(goal.target, goal) + ".";
+    }
+    return txt;
+  }
+
   // ---- Accommodations -------------------------------------------------------
   function addAccommodation(studentId, fields) {
     var s = getStudent(studentId);
@@ -951,7 +1006,7 @@ svg.chart { display: block; max-width: 100%; }
     addObjective: addObjective, toggleObjective: toggleObjective, deleteObjective: deleteObjective,
     measures: measures, measure: measure, customMeasures: customMeasures,
     addCustomMeasure: addCustomMeasure, deleteCustomMeasure: deleteCustomMeasure,
-    summarize: summarize,
+    summarize: summarize, parentSummary: parentSummary,
     addAccommodation: addAccommodation, deleteAccommodation: deleteAccommodation,
     addProgress: addProgress, deleteProgress: deleteProgress, progressForGoal: progressForGoal, valueOf: valueOf,
     addBehavior: addBehavior, deleteBehavior: deleteBehavior, behaviorsForStudent: behaviorsForStudent, allBehaviors: allBehaviors,
@@ -2038,15 +2093,25 @@ svg.chart { display: block; max-width: 100%; }
       (students.length ? '<button class="btn no-print" onclick="window.print()">🖨 Print / Save PDF</button>' : '') + '</div>';
     if (!students.length) return html + '<div class="card"><p class="muted mb-0">No students yet.</p></div>';
 
+    var style = state.reportStyle || "detailed";
     html += '<div class="flex wrap gap-sm no-print" style="align-items:flex-end">' +
       '<label class="field" style="max-width:320px;margin-bottom:0"><span>Choose a student report</span>' +
       '<select data-action="report-student">' + options([{ value: "", label: "— All students (summary) —" }].concat(students.map(function (s) { return { value: s.id, label: fullName(s) }; })), state.reportId || "") + '</select></label>' +
       rangeBarHTML() +
-      (state.reportId ? '<button class="btn primary" data-action="download-report" data-id="' + state.reportId + '">⬇ Download shareable report</button>' : '') +
       '</div>';
 
     if (state.reportId) {
-      html += studentReportHTML(state.reportId);
+      html += '<div class="flex wrap gap-sm no-print mt-2" style="align-items:center">' +
+        '<div class="seg"><button class="seg-btn' + (style === "detailed" ? " active" : "") + '" data-action="report-style" data-style="detailed">Detailed (for the team)</button>' +
+        '<button class="seg-btn' + (style === "parent" ? " active" : "") + '" data-action="report-style" data-style="parent">Parent-friendly</button></div>' +
+        (style === "parent"
+          ? '<button class="btn primary" data-action="download-parent-report" data-id="' + state.reportId + '">⬇ Download parent summary</button>'
+          : '<button class="btn primary" data-action="download-report" data-id="' + state.reportId + '">⬇ Download shareable report</button>') +
+        '</div>';
+    }
+
+    if (state.reportId) {
+      html += style === "parent" ? parentReportHTML(state.reportId) : studentReportHTML(state.reportId);
     } else {
       // caseload summary
       html += '<div class="card"><h3>Caseload progress summary</h3><div class="table-wrap"><table>' +
@@ -2358,6 +2423,73 @@ svg.chart { display: block; max-width: 100%; }
       '</div></body></html>';
   }
 
+  // Friendly section heading per goal area.
+  function friendlyAreaTitle(area) {
+    var map = {
+      "Reading": "📖 Reading", "Writing": "✏️ Writing", "Math": "🔢 Math",
+      "Communication/Language": "💬 Communication & language",
+      "Behavior/Social-Emotional": "🌟 Focus & social skills",
+      "Adaptive/Daily Living": "🧩 Everyday independence",
+      "Motor Skills": "🤸 Movement skills",
+      "Study/Organization Skills": "🗂️ Organization skills",
+      "Transition/Vocational": "🎓 Life & job skills"
+    };
+    return map[area] || ("⭐ " + (area || "Goal"));
+  }
+
+  // Parent-friendly, plain-language report markup (used for preview + download).
+  function parentReportHTML(id) {
+    var s = S.getStudent(id);
+    if (!s) return "";
+    var name = s.firstName || "Your child";
+    var goals = s.goals.filter(function (g) { return g.status !== "discontinued"; });
+
+    var html = '<div class="card mt-2"><h2 style="margin:0 0 4px">A quick update on ' + esc(name) + '’s progress</h2>' +
+      '<div class="muted small">Prepared ' + fmtDate(todayISO()) + (s.caseManager ? " · " + esc(s.caseManager) : "") + '</div>' +
+      '<p class="mt-1 mb-0">Here’s a simple, jargon-free look at how ' + esc(name) + ' is doing with their learning goals. Thank you for being part of the team — every bit of practice at home helps!</p></div>';
+
+    if (!goals.length) {
+      html += '<div class="card mt-2"><p class="mb-0 muted">No goals have been added yet.</p></div>';
+    }
+    goals.forEach(function (g) {
+      var mt = S.measure(g.measurement);
+      var pts = filterPoints(S.progressForGoal(g.id));
+      var text = S.parentSummary(g, pts, name);
+      var celebrate = g.status === "met" ? ' <span class="chip success">Goal met! 🎉</span>' : "";
+      html += '<div class="card mt-2"><h3 style="margin:0 0 6px">' + esc(friendlyAreaTitle(g.area)) + celebrate + '</h3>' +
+        '<div class="summary-box mb-2">' + esc(text) + '</div>';
+      if (pts.length) {
+        var chartPts = pts.map(function (p) { return { date: p.date, value: S.valueOf(p, g) }; });
+        var opts = chartOptsFor(g, mt); // target line, no aim line (keep it simple for families)
+        html += '<div class="chart-wrap">' + C.lineChart(chartPts, g.target, opts) + '</div>' +
+          '<p class="tiny muted mb-0">The blue line is ' + esc(name) + '’s progress over time. The green dashed line is the goal we’re aiming for.</p>';
+      }
+      html += '</div>';
+    });
+
+    if (s.accommodations.length) {
+      html += '<div class="card mt-2"><h3 style="margin:0 0 6px">🛟 Supports ' + esc(name) + ' uses in class</h3><ul style="margin:0">';
+      s.accommodations.forEach(function (a) { html += '<li>' + esc(a.text) + '</li>'; });
+      html += '</ul></div>';
+    }
+
+    html += '<div class="card mt-2"><p class="mb-0">Questions or want to celebrate a win together? Reach out any time — we’d love to talk through ' + esc(name) + '’s progress with you.</p></div>';
+    return html;
+  }
+
+  function buildParentReport(id) {
+    var s = S.getStudent(id);
+    if (!s) return "";
+    return '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8" />' +
+      '<meta name="viewport" content="width=device-width, initial-scale=1" />' +
+      '<title>Progress Update — ' + esc(fullName(s)) + '</title><style>' + REPORT_CSS + '</style></head><body><div class="report">' +
+      '<div class="report-head"><div><div class="brandline">Goal Tracker</div><div class="tiny muted">by Accessible Academics</div></div>' +
+      '<button class="printbtn" onclick="window.print()">🖨 Print / Save as PDF</button></div>' +
+      parentReportHTML(id) +
+      '<p class="tiny muted" style="margin-top:24px">Prepared ' + fmtDate(todayISO()) + ' · Please keep this confidential.</p>' +
+      '</div></body></html>';
+  }
+
   // Goal + custom-measure modal plumbing (supports creating a type mid-goal-entry).
   var pendingGoalCtx = null;
   function openGoalModal(sid, g) {
@@ -2436,6 +2568,7 @@ svg.chart { display: block; max-width: 100%; }
       updateTallyDisplay(g.measurement === "percent");
       toast("Saved data point ✓");
     },
+    "report-style": function (t) { state.reportStyle = t.getAttribute("data-style"); render(); },
     "download-report": function (t) {
       var id = t.getAttribute("data-id");
       var s = S.getStudent(id);
@@ -2443,6 +2576,14 @@ svg.chart { display: block; max-width: 100%; }
       var name = fullName(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
       download("report-" + name + "-" + todayISO() + ".html", buildStandaloneReport(id), "text/html");
       toast("Report downloaded");
+    },
+    "download-parent-report": function (t) {
+      var id = t.getAttribute("data-id");
+      var s = S.getStudent(id);
+      if (!s) return;
+      var name = fullName(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      download("parent-summary-" + name + "-" + todayISO() + ".html", buildParentReport(id), "text/html");
+      toast("Parent summary downloaded");
     },
     "edit-student": function (t) {
       openModal("Edit student", studentForm(S.getStudent(t.getAttribute("data-id"))),

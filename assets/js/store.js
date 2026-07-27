@@ -352,6 +352,61 @@
     return { status: status, label: label, text: text, met: met, pct: pct, latest: last, change: change };
   }
 
+  // Plain-language, jargon-free progress summary for families.
+  function friendlyAreaPhrase(area) {
+    var map = {
+      "Reading": "reading", "Writing": "writing", "Math": "math",
+      "Communication/Language": "communicating and using language",
+      "Behavior/Social-Emotional": "focusing and managing feelings",
+      "Adaptive/Daily Living": "everyday independence skills",
+      "Motor Skills": "movement and coordination",
+      "Study/Organization Skills": "staying organized",
+      "Transition/Vocational": "getting ready for life after school"
+    };
+    return map[area] || (area || "this skill").toLowerCase();
+  }
+  function parentValuePhrase(v, goal) {
+    var m = goal.measurement;
+    if (m === "percent") return "getting it right about " + Math.round(v) + "% of the time";
+    if (m === "duration") return "staying with it for about " + v + " minute" + (v === 1 ? "" : "s");
+    if (m === "frequency") return "about " + v + " time" + (v === 1 ? "" : "s");
+    if (m === "prompt") {
+      var pm = { 5: "doing it all on their own", 4: "doing it with just a verbal reminder", 3: "doing it with a small gesture cue", 2: "doing it with a model to copy", 1: "doing it with a little hands-on help", 0: "doing it with full hands-on help" };
+      return pm[v] || ("at level " + v);
+    }
+    var mt = measure(m);
+    return "at about " + v + (mt.unit || "");
+  }
+  function parentSummary(goal, points, name) {
+    name = name || "Your child";
+    var focus = friendlyAreaPhrase(goal.area);
+    if (!points || !points.length) {
+      return "We're working with " + name + " on " + focus + ". We're just getting started gathering information, so we'll have progress to share with you soon.";
+    }
+    var vals = points.map(function (p) { return valueOf(p, goal); }).filter(function (v) { return v != null && !isNaN(v); });
+    if (!vals.length) return "We're working with " + name + " on " + focus + ".";
+    var first = vals[0], last = vals[vals.length - 1];
+    var slope = regressionSlope(vals);
+    var higherBetter = goal.target != null ? goal.target >= first : slope >= 0;
+    var txt = "We're helping " + name + " with " + focus + ". ";
+    if (vals.length > 1) {
+      txt += "When we started, " + name + " was " + parentValuePhrase(first, goal) + ", and now " + name + " is " + parentValuePhrase(last, goal) + ". ";
+      var improving = higherBetter ? slope > 0.01 : slope < -0.01;
+      var declining = higherBetter ? slope < -0.01 : slope > 0.01;
+      if (improving) txt += "That's wonderful progress! ";
+      else if (declining) txt += "This one has dipped a little recently, so the team is giving it some extra attention. ";
+      else txt += "This is holding steady right now. ";
+    } else {
+      txt += name + " is currently " + parentValuePhrase(last, goal) + ". ";
+    }
+    if (goal.target != null) {
+      var met = higherBetter ? last >= goal.target : last <= goal.target;
+      if (met) txt += "🎉 " + name + " has reached this goal!";
+      else txt += "The goal we're aiming for is " + parentValuePhrase(goal.target, goal) + ".";
+    }
+    return txt;
+  }
+
   // ---- Accommodations -------------------------------------------------------
   function addAccommodation(studentId, fields) {
     var s = getStudent(studentId);
@@ -634,7 +689,7 @@
     addObjective: addObjective, toggleObjective: toggleObjective, deleteObjective: deleteObjective,
     measures: measures, measure: measure, customMeasures: customMeasures,
     addCustomMeasure: addCustomMeasure, deleteCustomMeasure: deleteCustomMeasure,
-    summarize: summarize,
+    summarize: summarize, parentSummary: parentSummary,
     addAccommodation: addAccommodation, deleteAccommodation: deleteAccommodation,
     addProgress: addProgress, deleteProgress: deleteProgress, progressForGoal: progressForGoal, valueOf: valueOf,
     addBehavior: addBehavior, deleteBehavior: deleteBehavior, behaviorsForStudent: behaviorsForStudent, allBehaviors: allBehaviors,

@@ -30,6 +30,9 @@ your device.**
   collapsible section so the active list stays focused.
 - **Shareable report** — download a clean, read-only one-page HTML report per
   student (opens in any browser, print to PDF) to hand to a parent or team.
+- **Parent-friendly summary** — a plain-language, jargon-free version of the
+  report written for families ("getting it right about 90% of the time"),
+  previewable on screen and downloadable/printable to send home.
 - **Behavior Tracking** — multiple log formats (**ABC**, **frequency/event
   count**, **duration**, and **interval recording**), weekly **trend charts**
   (switch between incident count, average duration, or average intensity) with a

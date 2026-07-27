@@ -941,15 +941,25 @@
       (students.length ? '<button class="btn no-print" onclick="window.print()">🖨 Print / Save PDF</button>' : '') + '</div>';
     if (!students.length) return html + '<div class="card"><p class="muted mb-0">No students yet.</p></div>';
 
+    var style = state.reportStyle || "detailed";
     html += '<div class="flex wrap gap-sm no-print" style="align-items:flex-end">' +
       '<label class="field" style="max-width:320px;margin-bottom:0"><span>Choose a student report</span>' +
       '<select data-action="report-student">' + options([{ value: "", label: "— All students (summary) —" }].concat(students.map(function (s) { return { value: s.id, label: fullName(s) }; })), state.reportId || "") + '</select></label>' +
       rangeBarHTML() +
-      (state.reportId ? '<button class="btn primary" data-action="download-report" data-id="' + state.reportId + '">⬇ Download shareable report</button>' : '') +
       '</div>';
 
     if (state.reportId) {
-      html += studentReportHTML(state.reportId);
+      html += '<div class="flex wrap gap-sm no-print mt-2" style="align-items:center">' +
+        '<div class="seg"><button class="seg-btn' + (style === "detailed" ? " active" : "") + '" data-action="report-style" data-style="detailed">Detailed (for the team)</button>' +
+        '<button class="seg-btn' + (style === "parent" ? " active" : "") + '" data-action="report-style" data-style="parent">Parent-friendly</button></div>' +
+        (style === "parent"
+          ? '<button class="btn primary" data-action="download-parent-report" data-id="' + state.reportId + '">⬇ Download parent summary</button>'
+          : '<button class="btn primary" data-action="download-report" data-id="' + state.reportId + '">⬇ Download shareable report</button>') +
+        '</div>';
+    }
+
+    if (state.reportId) {
+      html += style === "parent" ? parentReportHTML(state.reportId) : studentReportHTML(state.reportId);
     } else {
       // caseload summary
       html += '<div class="card"><h3>Caseload progress summary</h3><div class="table-wrap"><table>' +
@@ -1261,6 +1271,73 @@
       '</div></body></html>';
   }
 
+  // Friendly section heading per goal area.
+  function friendlyAreaTitle(area) {
+    var map = {
+      "Reading": "📖 Reading", "Writing": "✏️ Writing", "Math": "🔢 Math",
+      "Communication/Language": "💬 Communication & language",
+      "Behavior/Social-Emotional": "🌟 Focus & social skills",
+      "Adaptive/Daily Living": "🧩 Everyday independence",
+      "Motor Skills": "🤸 Movement skills",
+      "Study/Organization Skills": "🗂️ Organization skills",
+      "Transition/Vocational": "🎓 Life & job skills"
+    };
+    return map[area] || ("⭐ " + (area || "Goal"));
+  }
+
+  // Parent-friendly, plain-language report markup (used for preview + download).
+  function parentReportHTML(id) {
+    var s = S.getStudent(id);
+    if (!s) return "";
+    var name = s.firstName || "Your child";
+    var goals = s.goals.filter(function (g) { return g.status !== "discontinued"; });
+
+    var html = '<div class="card mt-2"><h2 style="margin:0 0 4px">A quick update on ' + esc(name) + '’s progress</h2>' +
+      '<div class="muted small">Prepared ' + fmtDate(todayISO()) + (s.caseManager ? " · " + esc(s.caseManager) : "") + '</div>' +
+      '<p class="mt-1 mb-0">Here’s a simple, jargon-free look at how ' + esc(name) + ' is doing with their learning goals. Thank you for being part of the team — every bit of practice at home helps!</p></div>';
+
+    if (!goals.length) {
+      html += '<div class="card mt-2"><p class="mb-0 muted">No goals have been added yet.</p></div>';
+    }
+    goals.forEach(function (g) {
+      var mt = S.measure(g.measurement);
+      var pts = filterPoints(S.progressForGoal(g.id));
+      var text = S.parentSummary(g, pts, name);
+      var celebrate = g.status === "met" ? ' <span class="chip success">Goal met! 🎉</span>' : "";
+      html += '<div class="card mt-2"><h3 style="margin:0 0 6px">' + esc(friendlyAreaTitle(g.area)) + celebrate + '</h3>' +
+        '<div class="summary-box mb-2">' + esc(text) + '</div>';
+      if (pts.length) {
+        var chartPts = pts.map(function (p) { return { date: p.date, value: S.valueOf(p, g) }; });
+        var opts = chartOptsFor(g, mt); // target line, no aim line (keep it simple for families)
+        html += '<div class="chart-wrap">' + C.lineChart(chartPts, g.target, opts) + '</div>' +
+          '<p class="tiny muted mb-0">The blue line is ' + esc(name) + '’s progress over time. The green dashed line is the goal we’re aiming for.</p>';
+      }
+      html += '</div>';
+    });
+
+    if (s.accommodations.length) {
+      html += '<div class="card mt-2"><h3 style="margin:0 0 6px">🛟 Supports ' + esc(name) + ' uses in class</h3><ul style="margin:0">';
+      s.accommodations.forEach(function (a) { html += '<li>' + esc(a.text) + '</li>'; });
+      html += '</ul></div>';
+    }
+
+    html += '<div class="card mt-2"><p class="mb-0">Questions or want to celebrate a win together? Reach out any time — we’d love to talk through ' + esc(name) + '’s progress with you.</p></div>';
+    return html;
+  }
+
+  function buildParentReport(id) {
+    var s = S.getStudent(id);
+    if (!s) return "";
+    return '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8" />' +
+      '<meta name="viewport" content="width=device-width, initial-scale=1" />' +
+      '<title>Progress Update — ' + esc(fullName(s)) + '</title><style>' + REPORT_CSS + '</style></head><body><div class="report">' +
+      '<div class="report-head"><div><div class="brandline">Goal Tracker</div><div class="tiny muted">by Accessible Academics</div></div>' +
+      '<button class="printbtn" onclick="window.print()">🖨 Print / Save as PDF</button></div>' +
+      parentReportHTML(id) +
+      '<p class="tiny muted" style="margin-top:24px">Prepared ' + fmtDate(todayISO()) + ' · Please keep this confidential.</p>' +
+      '</div></body></html>';
+  }
+
   // Goal + custom-measure modal plumbing (supports creating a type mid-goal-entry).
   var pendingGoalCtx = null;
   function openGoalModal(sid, g) {
@@ -1339,6 +1416,7 @@
       updateTallyDisplay(g.measurement === "percent");
       toast("Saved data point ✓");
     },
+    "report-style": function (t) { state.reportStyle = t.getAttribute("data-style"); render(); },
     "download-report": function (t) {
       var id = t.getAttribute("data-id");
       var s = S.getStudent(id);
@@ -1346,6 +1424,14 @@
       var name = fullName(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
       download("report-" + name + "-" + todayISO() + ".html", buildStandaloneReport(id), "text/html");
       toast("Report downloaded");
+    },
+    "download-parent-report": function (t) {
+      var id = t.getAttribute("data-id");
+      var s = S.getStudent(id);
+      if (!s) return;
+      var name = fullName(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      download("parent-summary-" + name + "-" + todayISO() + ".html", buildParentReport(id), "text/html");
+      toast("Parent summary downloaded");
     },
     "edit-student": function (t) {
       openModal("Edit student", studentForm(S.getStudent(t.getAttribute("data-id"))),
