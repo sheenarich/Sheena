@@ -1,4 +1,4 @@
-# Sheena — Special Education Data Tracker
+# Goal Tracker by Accessible Academics
 
 A simple, private web app for special education teachers to track IEP goals,
 progress data, student behavior, and accommodations. It runs entirely in your
@@ -59,6 +59,8 @@ assets/css/styles.css   Styling
 assets/js/store.js      Data model + localStorage persistence + sample data
 assets/js/charts.js     Dependency-free SVG progress/bar charts
 assets/js/app.js        UI, views, forms, and interactions
+goal-tracker.html       Portable single-file build (all of the above inlined)
 ```
 
 No build step and no dependencies — plain HTML, CSS, and JavaScript.
+`goal-tracker.html` is a self-contained copy you can open offline from one file.

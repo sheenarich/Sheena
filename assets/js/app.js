@@ -199,7 +199,7 @@
 
   function emptyStateHTML() {
     return '<div class="empty"><div class="big">🎯</div>' +
-      '<h2>Welcome to Sheena</h2>' +
+      '<h2>Welcome to Goal Tracker</h2>' +
       '<p>Track IEP goals, progress data, behavior, and accommodations — all stored privately on this device.</p>' +
       '<div class="flex" style="justify-content:center;margin-top:16px">' +
       '<button class="btn primary" data-action="add-student">＋ Add your first student</button>' +
@@ -757,7 +757,7 @@
       S.loadSampleData(); toast("Sample data loaded"); go("dashboard");
     },
     "export": function () {
-      download("sheena-backup-" + todayISO() + ".json", S.exportJSON());
+      download("goal-tracker-backup-" + todayISO() + ".json", S.exportJSON());
       toast("Backup downloaded");
     },
     "import": function (t) {

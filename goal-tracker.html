@@ -237,8 +237,8 @@ svg.chart { display: block; max-width: 100%; }
     <div class="brand">
       <span class="brand-mark" aria-hidden="true">🎯</span>
       <div>
-        <h1>Sheena</h1>
-        <p class="tagline">Special Education Data Tracker</p>
+        <h1>Goal Tracker</h1>
+        <p class="tagline">by Accessible Academics · Special Education Data</p>
       </div>
     </div>
     <div class="header-actions">
@@ -544,7 +544,7 @@ svg.chart { display: block; max-width: 100%; }
   function importJSON(text, mode) {
     var incoming = JSON.parse(text);
     if (!incoming || !Array.isArray(incoming.students)) {
-      throw new Error("This file does not look like a Sheena backup.");
+      throw new Error("This file does not look like a Goal Tracker backup.");
     }
     if (mode === "replace") {
       _cache = {
@@ -1010,7 +1010,7 @@ svg.chart { display: block; max-width: 100%; }
 
   function emptyStateHTML() {
     return '<div class="empty"><div class="big">🎯</div>' +
-      '<h2>Welcome to Sheena</h2>' +
+      '<h2>Welcome to Goal Tracker</h2>' +
       '<p>Track IEP goals, progress data, behavior, and accommodations — all stored privately on this device.</p>' +
       '<div class="flex" style="justify-content:center;margin-top:16px">' +
       '<button class="btn primary" data-action="add-student">＋ Add your first student</button>' +
@@ -1568,7 +1568,7 @@ svg.chart { display: block; max-width: 100%; }
       S.loadSampleData(); toast("Sample data loaded"); go("dashboard");
     },
     "export": function () {
-      download("sheena-backup-" + todayISO() + ".json", S.exportJSON());
+      download("goal-tracker-backup-" + todayISO() + ".json", S.exportJSON());
       toast("Backup downloaded");
     },
     "import": function (t) {

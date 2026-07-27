@@ -278,7 +278,7 @@
   function importJSON(text, mode) {
     var incoming = JSON.parse(text);
     if (!incoming || !Array.isArray(incoming.students)) {
-      throw new Error("This file does not look like a Sheena backup.");
+      throw new Error("This file does not look like a Goal Tracker backup.");
     }
     if (mode === "replace") {
       _cache = {
