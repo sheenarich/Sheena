@@ -452,10 +452,20 @@
   // ---- Collect Data tab -----------------------------------------------------
   function renderData() {
     var goals = S.allGoals();
-    var html = '<div class="page-head"><div><h2>Collect Data</h2><p class="sub">Quickly log a progress data point against any goal</p></div></div>';
+    var html = '<div class="page-head"><div><h2>Collect Data</h2><p class="sub">Log a single data point, or enter data for the whole group at once</p></div></div>';
     if (!goals.length) {
       return html + '<div class="card"><p class="muted mb-0">Add a student and at least one goal first.</p></div>';
     }
+
+    // Mode toggle: single vs bulk
+    var mode = state.dataMode || "single";
+    html += '<div class="seg no-print mb-2">' +
+      '<button class="seg-btn' + (mode === "single" ? " active" : "") + '" data-action="data-mode" data-mode="single">Single entry</button>' +
+      '<button class="seg-btn' + (mode === "bulk" ? " active" : "") + '" data-action="data-mode" data-mode="bulk">Bulk / group entry</button>' +
+      '</div>';
+
+    if (mode === "bulk") return html + bulkEntryHTML();
+
     html += '<div class="card" style="max-width:640px">' + dataFormHTML(null, null) + '</div>';
 
     // recent entries
@@ -509,6 +519,56 @@
       '</form>';
   }
 
+  // Bulk / group entry — one dated column, one row per active goal.
+  function activeGoalRows() {
+    return S.allGoals().filter(function (x) { return x.goal.status !== "met" && x.goal.status !== "discontinued"; });
+  }
+  function bulkInputsHTML(g) {
+    var id = g.id;
+    if (g.measurement === "percent") {
+      return '<input type="number" name="s_' + id + '" min="0" step="1" placeholder="#" class="bulk-in" aria-label="Number correct" /> <span class="tiny muted">/</span> ' +
+        '<input type="number" name="t_' + id + '" min="1" step="1" placeholder="trials" class="bulk-in" aria-label="Number of trials" />';
+    }
+    if (g.measurement === "prompt") {
+      return '<select name="s_' + id + '" class="bulk-sel"><option value="">—</option>' + options(S.PROMPT_LEVELS) + '</select>';
+    }
+    return '<input type="number" name="s_' + id + '" step="0.1" placeholder="value" class="bulk-in" aria-label="Value" />';
+  }
+  function bulkEntryHTML() {
+    var rows = activeGoalRows();
+    if (!rows.length) return '<div class="card"><p class="muted mb-0">No active goals to enter data for.</p></div>';
+
+    var html = '<form data-form="bulk">' +
+      '<div class="card mb-2"><div class="flex wrap gap-sm" style="align-items:flex-end">' +
+      '<label class="field" style="margin-bottom:0;max-width:220px"><span>Date for all entries</span><input type="date" name="bulk-date" value="' + todayISO() + '" /></label>' +
+      '<p class="tiny muted" style="margin:0 0 6px">Fill in only the students you have data for today — blank rows are skipped.</p>' +
+      '</div></div>';
+
+    // group rows by student
+    var order = [], byStudent = {};
+    rows.forEach(function (x) {
+      if (!byStudent[x.student.id]) { byStudent[x.student.id] = { student: x.student, goals: [] }; order.push(x.student.id); }
+      byStudent[x.student.id].goals.push(x.goal);
+    });
+
+    html += '<div class="card"><div class="table-wrap"><table><thead><tr><th>Student</th><th>Goal</th><th>Measure</th><th>Today’s value</th></tr></thead><tbody>';
+    order.forEach(function (sid) {
+      var grp = byStudent[sid];
+      grp.goals.forEach(function (g, i) {
+        var mt = S.measure(g.measurement);
+        html += '<tr><td class="nowrap">' + (i === 0 ? '<strong>' + esc(fullName(grp.student)) + '</strong>' : '') + '</td>' +
+          '<td class="small"><span class="chip purple">' + esc(g.area) + '</span> ' + esc(truncate(g.description, 46)) + '</td>' +
+          '<td class="tiny muted nowrap">' + esc(mt.label) + '</td>' +
+          '<td class="nowrap">' + bulkInputsHTML(g) + '</td></tr>';
+      });
+    });
+    html += '</tbody></table></div>';
+    html += '<div class="mt-2 flex gap-sm"><button type="submit" class="btn primary">Save all entered</button>' +
+      '<span class="tiny muted" style="align-self:center">' + rows.length + ' active goal' + (rows.length === 1 ? "" : "s") + '</span></div></div>';
+    html += '</form>';
+    return html;
+  }
+
   // Score inputs depend on measurement type.
   function scoreInputsHTML(goal) {
     var m = goal ? goal.measurement : "percent";
@@ -536,6 +596,33 @@
 
   function truncate(s, n) { s = s || ""; return s.length > n ? s.slice(0, n - 1) + "…" : s; }
 
+  // Monday (ISO week start) for a given YYYY-MM-DD date.
+  function weekStart(iso) {
+    var d = new Date(iso + "T00:00:00");
+    var dow = (d.getDay() + 6) % 7; // 0 = Monday
+    d.setDate(d.getDate() - dow);
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
+  // Bucket incidents into weekly counts, filling empty weeks with 0 so the
+  // trend line is honest about quiet periods.
+  function weeklyCounts(list) {
+    var dated = list.filter(function (b) { return b.date; });
+    if (!dated.length) return [];
+    var counts = {};
+    dated.forEach(function (b) { var w = weekStart(b.date); counts[w] = (counts[w] || 0) + 1; });
+    var weeks = Object.keys(counts).sort();
+    var first = weeks[0], last = weeks[weeks.length - 1];
+    var out = [], cur = new Date(first + "T00:00:00"), end = new Date(last + "T00:00:00");
+    var guard = 0;
+    while (cur <= end && guard < 520) {
+      var key = cur.getFullYear() + "-" + String(cur.getMonth() + 1).padStart(2, "0") + "-" + String(cur.getDate()).padStart(2, "0");
+      out.push({ date: key, value: counts[key] || 0 });
+      cur.setDate(cur.getDate() + 7);
+      guard++;
+    }
+    return out;
+  }
+
   // ---- Behavior tab ---------------------------------------------------------
   function renderBehavior() {
     var students = S.getStudents();
@@ -546,6 +633,21 @@
     if (!students.length) {
       return html + '<div class="card"><p class="muted mb-0">Add a student first to log behavior.</p></div>';
     }
+
+    // Behavior frequency over time (per week), optionally filtered to a student
+    var bStudent = state.behaviorStudent || "";
+    var trendSource = bStudent ? behaviors.filter(function (b) { return b.studentId === bStudent; }) : behaviors;
+    html += '<div class="card mb-2"><div class="flex-between wrap"><h3 style="margin:0">Incidents over time (weekly)</h3>' +
+      '<select data-action="behavior-student" class="range-select no-print" aria-label="Filter by student">' +
+      options([{ value: "", label: "All students" }].concat(students.map(function (s) { return { value: s.id, label: fullName(s) }; })), bStudent) + '</select></div>';
+    var weekly = weeklyCounts(trendSource);
+    if (weekly.length) {
+      html += '<div class="chart-wrap mt-1">' + C.lineChart(weekly, null, { unit: "", yMin: 0, integer: true }) + '</div>' +
+        '<p class="tiny muted mb-0">Each point is the number of incidents logged that week' + (bStudent ? " for this student" : " across the caseload") + '.</p>';
+    } else {
+      html += '<p class="muted small mb-0 mt-1">No incidents logged yet' + (bStudent ? " for this student" : "") + '.</p>';
+    }
+    html += '</div>';
 
     // Frequency summary by student
     var counts = {};
@@ -924,6 +1026,7 @@
       toast("Goal reactivated"); render();
     },
     "toggle-closed": function () { state.showClosed = !state.showClosed; render(); },
+    "data-mode": function (t) { state.dataMode = t.getAttribute("data-mode"); render(); },
     "download-report": function (t) {
       var id = t.getAttribute("data-id");
       var s = S.getStudent(id);
@@ -1099,6 +1202,27 @@
       S.addObjective(form.getAttribute("data-id"), form.getAttribute("data-goal"), d.text.trim());
       closeModal(); toast("Objective added"); render();
     },
+    bulk: function () {
+      var form = $('form[data-form="bulk"]');
+      if (!form) return;
+      var dateEl = form.querySelector('[name="bulk-date"]');
+      var date = (dateEl && dateEl.value) || todayISO();
+      var saved = 0;
+      activeGoalRows().forEach(function (x) {
+        var g = x.goal;
+        var sEl = form.querySelector('[name="s_' + g.id + '"]');
+        if (!sEl) return;
+        var s = sEl.value;
+        var tEl = form.querySelector('[name="t_' + g.id + '"]');
+        var t = tEl ? tEl.value : "";
+        if (s === "" && t === "") return;
+        S.addProgress({ studentId: x.student.id, goalId: g.id, date: date, score: s, total: t });
+        saved++;
+      });
+      if (!saved) { alert("Enter at least one value before saving."); return; }
+      toast("Saved " + saved + " data point" + (saved === 1 ? "" : "s"));
+      render();
+    },
     measure: function () {
       var form = $('form[data-form="measure"]');
       var d = readForm(form);
@@ -1168,6 +1292,7 @@
     }
     if (action === "range-from") { state.range.from = el.value; render(); return; }
     if (action === "range-to") { state.range.to = el.value; render(); return; }
+    if (action === "behavior-student") { state.behaviorStudent = el.value; render(); return; }
   });
 
   // Form submit (Enter key / native submit) for the data-entry form
@@ -1182,6 +1307,9 @@
       toast("Data point saved");
       closeModal();
       render();
+    } else if (form.getAttribute("data-form") === "bulk") {
+      e.preventDefault();
+      submitters.bulk();
     } else {
       e.preventDefault();
     }

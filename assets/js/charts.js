@@ -30,6 +30,13 @@
     var yMin = opts.yMin != null ? opts.yMin : 0;
     if (yMax <= yMin) yMax = yMin + 1;
     if (opts.yMax == null) yMax = yMax + (yMax - yMin) * 0.1;
+    // Whole-number axis for count data (avoids ticks like 0.8, 1.7…).
+    if (opts.integer) {
+      var top = Math.max(1, Math.ceil(vals.length ? Math.max.apply(null, vals) : 1));
+      var step = Math.ceil(top / 4);
+      yMin = 0;
+      yMax = step * 4;
+    }
 
     // Time domain
     var dates = points.map(function (p) { return dayNum(p.date); });

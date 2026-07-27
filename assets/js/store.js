@@ -553,9 +553,19 @@
     addP("stu-lily", "g-lily-comm", iso(2026, 6, 18), 7, 10);
 
     var behaviors = [
-      { id: "bh1", studentId: "stu-marcus", date: iso(2026, 6, 17), time: "10:15", setting: "Math — independent work", antecedent: "Given multi-step worksheet", behavior: "Left seat, wandered room", consequence: "Redirected, given chunked task", intensity: "Medium", durationMin: 4, notes: "Calmer once task was broken down." },
-      { id: "bh2", studentId: "stu-marcus", date: iso(2026, 6, 16), time: "13:40", setting: "Reading circle", antecedent: "Asked to read aloud", behavior: "Refusal, put head down", consequence: "Offered choice of passage", intensity: "Low", durationMin: 2, notes: "" },
-      { id: "bh3", studentId: "stu-ava", date: iso(2026, 6, 15), time: "09:05", setting: "Morning arrival", antecedent: "Unstructured transition", behavior: "Difficulty starting work", consequence: "Visual checklist provided", intensity: "Low", durationMin: 3, notes: "Checklist helped." }
+      // Marcus — a downward trend as supports take hold (more early, fewer later)
+      { id: "bh1", studentId: "stu-marcus", date: iso(2026, 5, 5), time: "10:15", setting: "Math — independent work", antecedent: "Given multi-step worksheet", behavior: "Left seat, wandered room", consequence: "Redirected, given chunked task", intensity: "High", durationMin: 6, notes: "" },
+      { id: "bh2", studentId: "stu-marcus", date: iso(2026, 5, 6), time: "13:40", setting: "Reading circle", antecedent: "Asked to read aloud", behavior: "Refusal, put head down", consequence: "Offered choice of passage", intensity: "Medium", durationMin: 4, notes: "" },
+      { id: "bh3", studentId: "stu-marcus", date: iso(2026, 5, 8), time: "11:20", setting: "Transition to lunch", antecedent: "Unstructured transition", behavior: "Ran ahead in hallway", consequence: "Reviewed hallway expectations", intensity: "Medium", durationMin: 2, notes: "" },
+      { id: "bh4", studentId: "stu-marcus", date: iso(2026, 5, 12), time: "09:30", setting: "Math", antecedent: "Long worksheet", behavior: "Out of seat", consequence: "Movement break offered", intensity: "Medium", durationMin: 3, notes: "" },
+      { id: "bh5", studentId: "stu-marcus", date: iso(2026, 5, 14), time: "14:05", setting: "Writing", antecedent: "Blank page", behavior: "Task refusal", consequence: "Sentence starter provided", intensity: "Low", durationMin: 3, notes: "" },
+      { id: "bh6", studentId: "stu-marcus", date: iso(2026, 5, 20), time: "10:00", setting: "Math", antecedent: "New concept", behavior: "Called out repeatedly", consequence: "Reminder of raise-hand rule", intensity: "Low", durationMin: 1, notes: "" },
+      { id: "bh7", studentId: "stu-marcus", date: iso(2026, 5, 28), time: "13:15", setting: "Group work", antecedent: "Peer disagreement", behavior: "Raised voice", consequence: "Brief cool-down", intensity: "Medium", durationMin: 4, notes: "" },
+      { id: "bh8", studentId: "stu-marcus", date: iso(2026, 6, 4), time: "09:45", setting: "Math", antecedent: "Independent work", behavior: "Off-task, doodling", consequence: "Chunked task", intensity: "Low", durationMin: 2, notes: "" },
+      { id: "bh9", studentId: "stu-marcus", date: iso(2026, 6, 16), time: "10:15", setting: "Math — independent work", antecedent: "Given multi-step worksheet", behavior: "Left seat briefly", consequence: "Self-corrected after break", intensity: "Low", durationMin: 1, notes: "Big improvement." },
+      // Ava — occasional morning starts
+      { id: "bh10", studentId: "stu-ava", date: iso(2026, 5, 15), time: "09:05", setting: "Morning arrival", antecedent: "Unstructured transition", behavior: "Difficulty starting work", consequence: "Visual checklist provided", intensity: "Low", durationMin: 3, notes: "Checklist helped." },
+      { id: "bh11", studentId: "stu-ava", date: iso(2026, 6, 5), time: "09:05", setting: "Morning arrival", antecedent: "Unstructured transition", behavior: "Slow to start", consequence: "First/then visual", intensity: "Low", durationMin: 2, notes: "" }
     ];
 
     return { schemaVersion: SCHEMA_VERSION, students: [s1, s2, s3], progress: progress, behaviors: behaviors, settings: { customMeasures: [] } };

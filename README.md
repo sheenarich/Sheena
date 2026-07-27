@@ -28,7 +28,10 @@ your device.**
 - **Shareable report** — download a clean, read-only one-page HTML report per
   student (opens in any browser, print to PDF) to hand to a parent or team.
 - **Behavior Tracking (ABC)** — Antecedent → Behavior → Consequence logs with
-  intensity and duration, plus frequency-by-student and by-intensity summaries.
+  intensity and duration, an **incidents-over-time (weekly) trend chart** with a
+  per-student filter, plus frequency-by-student and by-intensity summaries.
+- **Bulk / group data entry** — log one date's data for every active goal across
+  the whole caseload in a single grid (blank rows are skipped).
 - **Accommodations** — record accommodations per student, organized by category.
 - **Reports** — per-student progress reports (with charts) or a caseload summary,
   ready to **print or save as PDF**.

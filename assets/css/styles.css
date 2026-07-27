@@ -222,6 +222,16 @@ hr.sep { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
 .chart-wrap { width: 100%; overflow-x: auto; }
 svg.chart { display: block; max-width: 100%; }
 
+/* Segmented toggle (single / bulk) */
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 9px; overflow: hidden; }
+.seg-btn { border: none; background: var(--surface); padding: 9px 16px; cursor: pointer; font-size: 14px; font-family: inherit; color: var(--muted); }
+.seg-btn + .seg-btn { border-left: 1px solid var(--border); }
+.seg-btn.active { background: var(--primary); color: #fff; font-weight: 600; }
+
+/* Bulk entry inputs */
+.bulk-in { width: 78px; display: inline-block; padding: 6px 8px; }
+.bulk-sel { width: auto; padding: 6px 8px; }
+
 /* Date-range filter bar */
 .range-bar { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .range-select { width: auto; padding: 7px 10px; font-size: 13px; }

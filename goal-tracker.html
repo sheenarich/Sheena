@@ -223,6 +223,16 @@ hr.sep { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
 .chart-wrap { width: 100%; overflow-x: auto; }
 svg.chart { display: block; max-width: 100%; }
 
+/* Segmented toggle (single / bulk) */
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 9px; overflow: hidden; }
+.seg-btn { border: none; background: var(--surface); padding: 9px 16px; cursor: pointer; font-size: 14px; font-family: inherit; color: var(--muted); }
+.seg-btn + .seg-btn { border-left: 1px solid var(--border); }
+.seg-btn.active { background: var(--primary); color: #fff; font-weight: 600; }
+
+/* Bulk entry inputs */
+.bulk-in { width: 78px; display: inline-block; padding: 6px 8px; }
+.bulk-sel { width: auto; padding: 6px 8px; }
+
 /* Date-range filter bar */
 .range-bar { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .range-select { width: auto; padding: 7px 10px; font-size: 13px; }
@@ -846,9 +856,19 @@ svg.chart { display: block; max-width: 100%; }
     addP("stu-lily", "g-lily-comm", iso(2026, 6, 18), 7, 10);
 
     var behaviors = [
-      { id: "bh1", studentId: "stu-marcus", date: iso(2026, 6, 17), time: "10:15", setting: "Math — independent work", antecedent: "Given multi-step worksheet", behavior: "Left seat, wandered room", consequence: "Redirected, given chunked task", intensity: "Medium", durationMin: 4, notes: "Calmer once task was broken down." },
-      { id: "bh2", studentId: "stu-marcus", date: iso(2026, 6, 16), time: "13:40", setting: "Reading circle", antecedent: "Asked to read aloud", behavior: "Refusal, put head down", consequence: "Offered choice of passage", intensity: "Low", durationMin: 2, notes: "" },
-      { id: "bh3", studentId: "stu-ava", date: iso(2026, 6, 15), time: "09:05", setting: "Morning arrival", antecedent: "Unstructured transition", behavior: "Difficulty starting work", consequence: "Visual checklist provided", intensity: "Low", durationMin: 3, notes: "Checklist helped." }
+      // Marcus — a downward trend as supports take hold (more early, fewer later)
+      { id: "bh1", studentId: "stu-marcus", date: iso(2026, 5, 5), time: "10:15", setting: "Math — independent work", antecedent: "Given multi-step worksheet", behavior: "Left seat, wandered room", consequence: "Redirected, given chunked task", intensity: "High", durationMin: 6, notes: "" },
+      { id: "bh2", studentId: "stu-marcus", date: iso(2026, 5, 6), time: "13:40", setting: "Reading circle", antecedent: "Asked to read aloud", behavior: "Refusal, put head down", consequence: "Offered choice of passage", intensity: "Medium", durationMin: 4, notes: "" },
+      { id: "bh3", studentId: "stu-marcus", date: iso(2026, 5, 8), time: "11:20", setting: "Transition to lunch", antecedent: "Unstructured transition", behavior: "Ran ahead in hallway", consequence: "Reviewed hallway expectations", intensity: "Medium", durationMin: 2, notes: "" },
+      { id: "bh4", studentId: "stu-marcus", date: iso(2026, 5, 12), time: "09:30", setting: "Math", antecedent: "Long worksheet", behavior: "Out of seat", consequence: "Movement break offered", intensity: "Medium", durationMin: 3, notes: "" },
+      { id: "bh5", studentId: "stu-marcus", date: iso(2026, 5, 14), time: "14:05", setting: "Writing", antecedent: "Blank page", behavior: "Task refusal", consequence: "Sentence starter provided", intensity: "Low", durationMin: 3, notes: "" },
+      { id: "bh6", studentId: "stu-marcus", date: iso(2026, 5, 20), time: "10:00", setting: "Math", antecedent: "New concept", behavior: "Called out repeatedly", consequence: "Reminder of raise-hand rule", intensity: "Low", durationMin: 1, notes: "" },
+      { id: "bh7", studentId: "stu-marcus", date: iso(2026, 5, 28), time: "13:15", setting: "Group work", antecedent: "Peer disagreement", behavior: "Raised voice", consequence: "Brief cool-down", intensity: "Medium", durationMin: 4, notes: "" },
+      { id: "bh8", studentId: "stu-marcus", date: iso(2026, 6, 4), time: "09:45", setting: "Math", antecedent: "Independent work", behavior: "Off-task, doodling", consequence: "Chunked task", intensity: "Low", durationMin: 2, notes: "" },
+      { id: "bh9", studentId: "stu-marcus", date: iso(2026, 6, 16), time: "10:15", setting: "Math — independent work", antecedent: "Given multi-step worksheet", behavior: "Left seat briefly", consequence: "Self-corrected after break", intensity: "Low", durationMin: 1, notes: "Big improvement." },
+      // Ava — occasional morning starts
+      { id: "bh10", studentId: "stu-ava", date: iso(2026, 5, 15), time: "09:05", setting: "Morning arrival", antecedent: "Unstructured transition", behavior: "Difficulty starting work", consequence: "Visual checklist provided", intensity: "Low", durationMin: 3, notes: "Checklist helped." },
+      { id: "bh11", studentId: "stu-ava", date: iso(2026, 6, 5), time: "09:05", setting: "Morning arrival", antecedent: "Unstructured transition", behavior: "Slow to start", consequence: "First/then visual", intensity: "Low", durationMin: 2, notes: "" }
     ];
 
     return { schemaVersion: SCHEMA_VERSION, students: [s1, s2, s3], progress: progress, behaviors: behaviors, settings: { customMeasures: [] } };
@@ -911,6 +931,13 @@ svg.chart { display: block; max-width: 100%; }
     var yMin = opts.yMin != null ? opts.yMin : 0;
     if (yMax <= yMin) yMax = yMin + 1;
     if (opts.yMax == null) yMax = yMax + (yMax - yMin) * 0.1;
+    // Whole-number axis for count data (avoids ticks like 0.8, 1.7…).
+    if (opts.integer) {
+      var top = Math.max(1, Math.ceil(vals.length ? Math.max.apply(null, vals) : 1));
+      var step = Math.ceil(top / 4);
+      yMin = 0;
+      yMax = step * 4;
+    }
 
     // Time domain
     var dates = points.map(function (p) { return dayNum(p.date); });
@@ -1460,10 +1487,20 @@ svg.chart { display: block; max-width: 100%; }
   // ---- Collect Data tab -----------------------------------------------------
   function renderData() {
     var goals = S.allGoals();
-    var html = '<div class="page-head"><div><h2>Collect Data</h2><p class="sub">Quickly log a progress data point against any goal</p></div></div>';
+    var html = '<div class="page-head"><div><h2>Collect Data</h2><p class="sub">Log a single data point, or enter data for the whole group at once</p></div></div>';
     if (!goals.length) {
       return html + '<div class="card"><p class="muted mb-0">Add a student and at least one goal first.</p></div>';
     }
+
+    // Mode toggle: single vs bulk
+    var mode = state.dataMode || "single";
+    html += '<div class="seg no-print mb-2">' +
+      '<button class="seg-btn' + (mode === "single" ? " active" : "") + '" data-action="data-mode" data-mode="single">Single entry</button>' +
+      '<button class="seg-btn' + (mode === "bulk" ? " active" : "") + '" data-action="data-mode" data-mode="bulk">Bulk / group entry</button>' +
+      '</div>';
+
+    if (mode === "bulk") return html + bulkEntryHTML();
+
     html += '<div class="card" style="max-width:640px">' + dataFormHTML(null, null) + '</div>';
 
     // recent entries
@@ -1517,6 +1554,56 @@ svg.chart { display: block; max-width: 100%; }
       '</form>';
   }
 
+  // Bulk / group entry — one dated column, one row per active goal.
+  function activeGoalRows() {
+    return S.allGoals().filter(function (x) { return x.goal.status !== "met" && x.goal.status !== "discontinued"; });
+  }
+  function bulkInputsHTML(g) {
+    var id = g.id;
+    if (g.measurement === "percent") {
+      return '<input type="number" name="s_' + id + '" min="0" step="1" placeholder="#" class="bulk-in" aria-label="Number correct" /> <span class="tiny muted">/</span> ' +
+        '<input type="number" name="t_' + id + '" min="1" step="1" placeholder="trials" class="bulk-in" aria-label="Number of trials" />';
+    }
+    if (g.measurement === "prompt") {
+      return '<select name="s_' + id + '" class="bulk-sel"><option value="">—</option>' + options(S.PROMPT_LEVELS) + '</select>';
+    }
+    return '<input type="number" name="s_' + id + '" step="0.1" placeholder="value" class="bulk-in" aria-label="Value" />';
+  }
+  function bulkEntryHTML() {
+    var rows = activeGoalRows();
+    if (!rows.length) return '<div class="card"><p class="muted mb-0">No active goals to enter data for.</p></div>';
+
+    var html = '<form data-form="bulk">' +
+      '<div class="card mb-2"><div class="flex wrap gap-sm" style="align-items:flex-end">' +
+      '<label class="field" style="margin-bottom:0;max-width:220px"><span>Date for all entries</span><input type="date" name="bulk-date" value="' + todayISO() + '" /></label>' +
+      '<p class="tiny muted" style="margin:0 0 6px">Fill in only the students you have data for today — blank rows are skipped.</p>' +
+      '</div></div>';
+
+    // group rows by student
+    var order = [], byStudent = {};
+    rows.forEach(function (x) {
+      if (!byStudent[x.student.id]) { byStudent[x.student.id] = { student: x.student, goals: [] }; order.push(x.student.id); }
+      byStudent[x.student.id].goals.push(x.goal);
+    });
+
+    html += '<div class="card"><div class="table-wrap"><table><thead><tr><th>Student</th><th>Goal</th><th>Measure</th><th>Today’s value</th></tr></thead><tbody>';
+    order.forEach(function (sid) {
+      var grp = byStudent[sid];
+      grp.goals.forEach(function (g, i) {
+        var mt = S.measure(g.measurement);
+        html += '<tr><td class="nowrap">' + (i === 0 ? '<strong>' + esc(fullName(grp.student)) + '</strong>' : '') + '</td>' +
+          '<td class="small"><span class="chip purple">' + esc(g.area) + '</span> ' + esc(truncate(g.description, 46)) + '</td>' +
+          '<td class="tiny muted nowrap">' + esc(mt.label) + '</td>' +
+          '<td class="nowrap">' + bulkInputsHTML(g) + '</td></tr>';
+      });
+    });
+    html += '</tbody></table></div>';
+    html += '<div class="mt-2 flex gap-sm"><button type="submit" class="btn primary">Save all entered</button>' +
+      '<span class="tiny muted" style="align-self:center">' + rows.length + ' active goal' + (rows.length === 1 ? "" : "s") + '</span></div></div>';
+    html += '</form>';
+    return html;
+  }
+
   // Score inputs depend on measurement type.
   function scoreInputsHTML(goal) {
     var m = goal ? goal.measurement : "percent";
@@ -1544,6 +1631,33 @@ svg.chart { display: block; max-width: 100%; }
 
   function truncate(s, n) { s = s || ""; return s.length > n ? s.slice(0, n - 1) + "…" : s; }
 
+  // Monday (ISO week start) for a given YYYY-MM-DD date.
+  function weekStart(iso) {
+    var d = new Date(iso + "T00:00:00");
+    var dow = (d.getDay() + 6) % 7; // 0 = Monday
+    d.setDate(d.getDate() - dow);
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
+  // Bucket incidents into weekly counts, filling empty weeks with 0 so the
+  // trend line is honest about quiet periods.
+  function weeklyCounts(list) {
+    var dated = list.filter(function (b) { return b.date; });
+    if (!dated.length) return [];
+    var counts = {};
+    dated.forEach(function (b) { var w = weekStart(b.date); counts[w] = (counts[w] || 0) + 1; });
+    var weeks = Object.keys(counts).sort();
+    var first = weeks[0], last = weeks[weeks.length - 1];
+    var out = [], cur = new Date(first + "T00:00:00"), end = new Date(last + "T00:00:00");
+    var guard = 0;
+    while (cur <= end && guard < 520) {
+      var key = cur.getFullYear() + "-" + String(cur.getMonth() + 1).padStart(2, "0") + "-" + String(cur.getDate()).padStart(2, "0");
+      out.push({ date: key, value: counts[key] || 0 });
+      cur.setDate(cur.getDate() + 7);
+      guard++;
+    }
+    return out;
+  }
+
   // ---- Behavior tab ---------------------------------------------------------
   function renderBehavior() {
     var students = S.getStudents();
@@ -1554,6 +1668,21 @@ svg.chart { display: block; max-width: 100%; }
     if (!students.length) {
       return html + '<div class="card"><p class="muted mb-0">Add a student first to log behavior.</p></div>';
     }
+
+    // Behavior frequency over time (per week), optionally filtered to a student
+    var bStudent = state.behaviorStudent || "";
+    var trendSource = bStudent ? behaviors.filter(function (b) { return b.studentId === bStudent; }) : behaviors;
+    html += '<div class="card mb-2"><div class="flex-between wrap"><h3 style="margin:0">Incidents over time (weekly)</h3>' +
+      '<select data-action="behavior-student" class="range-select no-print" aria-label="Filter by student">' +
+      options([{ value: "", label: "All students" }].concat(students.map(function (s) { return { value: s.id, label: fullName(s) }; })), bStudent) + '</select></div>';
+    var weekly = weeklyCounts(trendSource);
+    if (weekly.length) {
+      html += '<div class="chart-wrap mt-1">' + C.lineChart(weekly, null, { unit: "", yMin: 0, integer: true }) + '</div>' +
+        '<p class="tiny muted mb-0">Each point is the number of incidents logged that week' + (bStudent ? " for this student" : " across the caseload") + '.</p>';
+    } else {
+      html += '<p class="muted small mb-0 mt-1">No incidents logged yet' + (bStudent ? " for this student" : "") + '.</p>';
+    }
+    html += '</div>';
 
     // Frequency summary by student
     var counts = {};
@@ -1932,6 +2061,7 @@ svg.chart { display: block; max-width: 100%; }
       toast("Goal reactivated"); render();
     },
     "toggle-closed": function () { state.showClosed = !state.showClosed; render(); },
+    "data-mode": function (t) { state.dataMode = t.getAttribute("data-mode"); render(); },
     "download-report": function (t) {
       var id = t.getAttribute("data-id");
       var s = S.getStudent(id);
@@ -2107,6 +2237,27 @@ svg.chart { display: block; max-width: 100%; }
       S.addObjective(form.getAttribute("data-id"), form.getAttribute("data-goal"), d.text.trim());
       closeModal(); toast("Objective added"); render();
     },
+    bulk: function () {
+      var form = $('form[data-form="bulk"]');
+      if (!form) return;
+      var dateEl = form.querySelector('[name="bulk-date"]');
+      var date = (dateEl && dateEl.value) || todayISO();
+      var saved = 0;
+      activeGoalRows().forEach(function (x) {
+        var g = x.goal;
+        var sEl = form.querySelector('[name="s_' + g.id + '"]');
+        if (!sEl) return;
+        var s = sEl.value;
+        var tEl = form.querySelector('[name="t_' + g.id + '"]');
+        var t = tEl ? tEl.value : "";
+        if (s === "" && t === "") return;
+        S.addProgress({ studentId: x.student.id, goalId: g.id, date: date, score: s, total: t });
+        saved++;
+      });
+      if (!saved) { alert("Enter at least one value before saving."); return; }
+      toast("Saved " + saved + " data point" + (saved === 1 ? "" : "s"));
+      render();
+    },
     measure: function () {
       var form = $('form[data-form="measure"]');
       var d = readForm(form);
@@ -2176,6 +2327,7 @@ svg.chart { display: block; max-width: 100%; }
     }
     if (action === "range-from") { state.range.from = el.value; render(); return; }
     if (action === "range-to") { state.range.to = el.value; render(); return; }
+    if (action === "behavior-student") { state.behaviorStudent = el.value; render(); return; }
   });
 
   // Form submit (Enter key / native submit) for the data-entry form
@@ -2190,6 +2342,9 @@ svg.chart { display: block; max-width: 100%; }
       toast("Data point saved");
       closeModal();
       render();
+    } else if (form.getAttribute("data-form") === "bulk") {
+      e.preventDefault();
+      submitters.bulk();
     } else {
       e.preventDefault();
     }
