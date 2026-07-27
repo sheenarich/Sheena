@@ -5,7 +5,7 @@
   var S = window.Store;
   var C = window.Charts;
 
-  var state = { view: "dashboard", studentId: null };
+  var state = { view: "dashboard", studentId: null, range: { preset: "all", from: "", to: "" } };
 
   // ---- Utilities ------------------------------------------------------------
   function esc(s) {
@@ -45,6 +45,48 @@
     var now = new Date(todayISO() + "T00:00:00");
     return Math.round((target - now) / (1000 * 60 * 60 * 24));
   }
+  function addDays(iso, delta) {
+    var d = new Date(iso + "T00:00:00");
+    d.setDate(d.getDate() + delta);
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
+  // Resolve the active date filter to {from, to} ISO strings, or null for "all".
+  function rangeBounds() {
+    var r = state.range || { preset: "all" };
+    if (r.preset === "all") return null;
+    if (r.preset === "30") return { from: addDays(todayISO(), -30), to: todayISO() };
+    if (r.preset === "90") return { from: addDays(todayISO(), -90), to: todayISO() };
+    if (r.preset === "custom") {
+      if (!r.from && !r.to) return null;
+      return { from: r.from || "0000-01-01", to: r.to || "9999-12-31" };
+    }
+    return null;
+  }
+  function filterPoints(pts) {
+    var b = rangeBounds();
+    if (!b) return pts;
+    return pts.filter(function (p) { return p.date >= b.from && p.date <= b.to; });
+  }
+  function rangeActive() { return rangeBounds() != null; }
+  function rangeBarHTML() {
+    var r = state.range || { preset: "all" };
+    var presets = [
+      { value: "all", label: "All time" },
+      { value: "30", label: "Last 30 days" },
+      { value: "90", label: "Last 90 days" },
+      { value: "custom", label: "Custom range…" }
+    ];
+    var html = '<div class="range-bar no-print"><span class="tiny muted" style="font-weight:600">📅 Data range:</span>' +
+      '<select data-action="range-change" class="range-select">' + options(presets, r.preset) + '</select>';
+    if (r.preset === "custom") {
+      html += '<input type="date" data-action="range-from" value="' + esc(r.from || "") + '" aria-label="From date" class="range-select" />' +
+        '<span class="tiny muted">to</span>' +
+        '<input type="date" data-action="range-to" value="' + esc(r.to || "") + '" aria-label="To date" class="range-select" />';
+    }
+    html += '</div>';
+    return html;
+  }
+
   function options(list, selected) {
     return list.map(function (o) {
       var val = typeof o === "object" ? o.value : o;
@@ -108,9 +150,10 @@
     var students = S.getStudents();
     if (!students.length) return emptyStateHTML();
 
-    var goalCount = 0, dataCount = 0;
-    students.forEach(function (s) { goalCount += s.goals.length; });
-    S.getStudents(); // ensure loaded
+    var goalCount = 0;
+    students.forEach(function (s) {
+      s.goals.forEach(function (g) { if (g.status !== "met" && g.status !== "discontinued") goalCount += 1; });
+    });
     var behaviors = S.allBehaviors();
 
     // compliance alerts
@@ -241,13 +284,31 @@
     html += dateBox("Re-evaluation", s.dates.reevaluation);
     html += '</div></div>';
 
-    // Goals
-    html += '<div class="flex-between"><h3 class="section-title" style="margin:0">IEP Goals &amp; objectives</h3>' +
-      '<button class="btn sm primary no-print" data-action="add-goal" data-id="' + s.id + '">＋ Add goal</button></div>';
+    // Goals — split active vs. mastered/closed
+    var activeGoals = s.goals.filter(function (g) { return g.status !== "met" && g.status !== "discontinued"; });
+    var closedGoals = s.goals.filter(function (g) { return g.status === "met" || g.status === "discontinued"; });
+
+    html += '<div class="flex-between wrap"><h3 class="section-title" style="margin:0">IEP Goals &amp; objectives</h3>' +
+      '<div class="flex gap-sm wrap">' + rangeBarHTML() +
+      '<button class="btn sm primary no-print" data-action="add-goal" data-id="' + s.id + '">＋ Add goal</button></div></div>';
     if (!s.goals.length) {
       html += '<div class="card"><p class="muted small mb-0">No goals yet. Add an IEP goal to start collecting data.</p></div>';
+    } else if (!activeGoals.length) {
+      html += '<div class="card"><p class="muted small mb-0">No active goals — see mastered &amp; closed goals below.</p></div>';
     } else {
-      html += '<div class="grid" style="gap:14px">' + s.goals.map(function (g) { return goalCardHTML(s, g); }).join("") + '</div>';
+      html += '<div class="grid" style="gap:14px">' + activeGoals.map(function (g) { return goalCardHTML(s, g); }).join("") + '</div>';
+    }
+
+    // Mastered & closed goals
+    if (closedGoals.length) {
+      var metCount = closedGoals.filter(function (g) { return g.status === "met"; }).length;
+      html += '<div class="flex-between mt-2"><h3 class="section-title" style="margin:0">🏆 Mastered &amp; closed goals (' + closedGoals.length + ')</h3>' +
+        '<button class="btn sm ghost no-print" data-action="toggle-closed">' + (state.showClosed ? "Hide" : "Show") + '</button></div>';
+      if (state.showClosed) {
+        html += '<div class="grid" style="gap:14px">' + closedGoals.map(function (g) { return goalCardHTML(s, g); }).join("") + '</div>';
+      } else {
+        html += '<div class="card"><p class="muted small mb-0">' + metCount + ' mastered' + (closedGoals.length - metCount ? ", " + (closedGoals.length - metCount) + " discontinued" : "") + '. Click <strong>Show</strong> to view.</p></div>';
+      }
     }
 
     // Accommodations
@@ -294,9 +355,31 @@
 
   var STATUS_CHIP = { met: "success", improving: "success", declining: "danger", flat: "warn", none: "" };
 
+  // Build an aim/projection line spec: baseline value -> target by review date.
+  function aimFor(s, g, pts) {
+    if (g.target == null) return null;
+    var toDate = s.dates && s.dates.annualReview;
+    if (!toDate) return null;
+    var fromDate = pts.length ? pts[0].date : (g.createdAt || "").slice(0, 10);
+    if (!fromDate) return null;
+    var bm = (g.baseline || "").match(/-?\d+(\.\d+)?/);
+    var fromValue = bm ? Number(bm[0]) : (pts.length ? S.valueOf(pts[0], g) : null);
+    if (fromValue == null || isNaN(fromValue)) return null;
+    if (toDate <= fromDate) return null; // review date must be after the start
+    return { fromDate: fromDate, fromValue: fromValue, toDate: toDate, toValue: g.target };
+  }
+
+  function chartOptsFor(g, mt) {
+    var opts = { unit: mt.unit };
+    if (g.measurement === "percent") { opts.yMax = 100; opts.yMin = 0; }
+    if (g.measurement === "prompt" || g.measurement === "rating") { opts.yMax = 5; opts.yMin = 0; }
+    if (mt.custom && mt.max) { opts.yMax = mt.max; opts.yMin = 0; }
+    return opts;
+  }
+
   function goalCardHTML(s, g) {
     var mt = S.measure(g.measurement);
-    var pts = S.progressForGoal(g.id);
+    var pts = filterPoints(S.progressForGoal(g.id));
     var latest = pts.length ? S.valueOf(pts[pts.length - 1], g) : null;
     var statusChip = g.status === "met" ? '<span class="chip success">Met</span>' :
       g.status === "discontinued" ? '<span class="chip">Discontinued</span>' : '<span class="chip primary">Active</span>';
@@ -325,13 +408,11 @@
     html += '<div class="summary-box mt-1"><span class="chip ' + chipCls + '">' + esc(sum.label) + '</span> ' +
       '<span class="small">' + esc(sum.text) + '</span></div>';
 
-    // mini chart
+    // mini chart with aim line
     if (pts.length) {
       var chartPts = pts.map(function (p) { return { date: p.date, value: S.valueOf(p, g) }; });
-      var opts = { unit: mt.unit };
-      if (g.measurement === "percent") { opts.yMax = 100; opts.yMin = 0; }
-      if (g.measurement === "prompt" || g.measurement === "rating") { opts.yMax = 5; opts.yMin = 0; }
-      if (mt.custom && mt.max) { opts.yMax = mt.max; opts.yMin = 0; }
+      var opts = chartOptsFor(g, mt);
+      opts.aim = aimFor(s, g, pts);
       html += '<div class="chart-wrap mt-1">' + C.lineChart(chartPts, g.target, opts) + '</div>';
     }
 
@@ -355,9 +436,12 @@
     html += '</div>';
 
     // Footer actions
-    html += '<div class="flex-between no-print mt-1" style="border-top:1px solid var(--border);padding-top:10px">' +
-      '<span class="tiny muted">' + (pts.length ? pts.length + ' data point' + (pts.length === 1 ? "" : "s") : "No data yet") + '</span>' +
-      '<span>' + (pts.length ? '<button class="btn sm ghost" data-action="view-goal-data" data-id="' + s.id + '" data-goal="' + g.id + '">View/edit data</button> ' : '') +
+    var masterBtn = g.status === "met"
+      ? '<button class="btn sm ghost" data-action="reactivate-goal" data-id="' + s.id + '" data-goal="' + g.id + '">↩ Reactivate</button> '
+      : '<button class="btn sm success" data-action="mark-mastered" data-id="' + s.id + '" data-goal="' + g.id + '">✓ Mark mastered</button> ';
+    html += '<div class="flex-between no-print mt-1 wrap" style="border-top:1px solid var(--border);padding-top:10px;gap:8px">' +
+      '<span class="tiny muted">' + (pts.length ? pts.length + ' data point' + (pts.length === 1 ? "" : "s") + (rangeActive() ? " in range" : "") : (rangeActive() ? "No data in range" : "No data yet")) + '</span>' +
+      '<span>' + masterBtn + (pts.length ? '<button class="btn sm ghost" data-action="view-goal-data" data-id="' + s.id + '" data-goal="' + g.id + '">View/edit data</button> ' : '') +
       '<button class="btn sm ghost" data-action="edit-goal" data-id="' + s.id + '" data-goal="' + g.id + '">Edit goal</button> ' +
       '<button class="btn sm ghost" data-action="delete-goal" data-id="' + s.id + '" data-goal="' + g.id + '">Delete</button></span></div>';
 
@@ -513,8 +597,12 @@
       (students.length ? '<button class="btn no-print" onclick="window.print()">🖨 Print / Save PDF</button>' : '') + '</div>';
     if (!students.length) return html + '<div class="card"><p class="muted mb-0">No students yet.</p></div>';
 
-    html += '<label class="field no-print" style="max-width:320px"><span>Choose a student report</span>' +
-      '<select data-action="report-student">' + options([{ value: "", label: "— All students (summary) —" }].concat(students.map(function (s) { return { value: s.id, label: fullName(s) }; })), state.reportId || "") + '</select></label>';
+    html += '<div class="flex wrap gap-sm no-print" style="align-items:flex-end">' +
+      '<label class="field" style="max-width:320px;margin-bottom:0"><span>Choose a student report</span>' +
+      '<select data-action="report-student">' + options([{ value: "", label: "— All students (summary) —" }].concat(students.map(function (s) { return { value: s.id, label: fullName(s) }; })), state.reportId || "") + '</select></label>' +
+      rangeBarHTML() +
+      (state.reportId ? '<button class="btn primary" data-action="download-report" data-id="' + state.reportId + '">⬇ Download shareable report</button>' : '') +
+      '</div>';
 
     if (state.reportId) {
       html += studentReportHTML(state.reportId);
@@ -529,7 +617,7 @@
         }
         s.goals.forEach(function (g, i) {
           var mt = S.measure(g.measurement);
-          var pts = S.progressForGoal(g.id);
+          var pts = filterPoints(S.progressForGoal(g.id));
           var latest = pts.length ? S.valueOf(pts[pts.length - 1], g) : null;
           rows += '<tr><td>' + (i === 0 ? esc(fullName(s)) : "") + '</td>' +
             '<td><span class="chip purple">' + esc(g.area) + '</span></td>' +
@@ -556,8 +644,9 @@
 
     s.goals.forEach(function (g) {
       var mt = S.measure(g.measurement);
-      var pts = S.progressForGoal(g.id);
-      html += '<hr class="sep"><div><span class="chip purple">' + esc(g.area) + '</span>' +
+      var pts = filterPoints(S.progressForGoal(g.id));
+      var statusTag = g.status === "met" ? ' <span class="chip success">Mastered</span>' : g.status === "discontinued" ? ' <span class="chip">Discontinued</span>' : "";
+      html += '<hr class="sep"><div><span class="chip purple">' + esc(g.area) + '</span>' + statusTag +
         '<p style="margin:8px 0 4px"><strong>' + esc(g.description) + '</strong></p>' +
         '<div class="muted tiny mb-2">Baseline: ' + esc(g.baseline || "—") + ' · Target: ' + esc(g.target != null ? g.target + (mt.unit || "") : "—") + ' · ' + pts.length + ' data points</div>';
       // Narrative progress summary
@@ -565,10 +654,8 @@
       html += '<div class="summary-box mb-2"><span class="chip ' + (STATUS_CHIP[sum.status] || "") + '">' + esc(sum.label) + '</span> <span class="small">' + esc(sum.text) + '</span></div>';
       if (pts.length) {
         var chartPts = pts.map(function (p) { return { date: p.date, value: S.valueOf(p, g) }; });
-        var opts = { unit: mt.unit };
-        if (g.measurement === "percent") { opts.yMax = 100; opts.yMin = 0; }
-        if (g.measurement === "prompt" || g.measurement === "rating") { opts.yMax = 5; opts.yMin = 0; }
-        if (mt.custom && mt.max) { opts.yMax = mt.max; opts.yMin = 0; }
+        var opts = chartOptsFor(g, mt);
+        opts.aim = aimFor(s, g, pts);
         html += '<div class="chart-wrap">' + C.lineChart(chartPts, g.target, opts) + '</div>';
       } else {
         html += '<p class="muted small">No data collected yet.</p>';
@@ -752,14 +839,53 @@
   }
 
   // ---- Actions --------------------------------------------------------------
-  function download(filename, text) {
-    var blob = new Blob([text], { type: "application/json" });
+  function download(filename, text, mime) {
+    var blob = new Blob([text], { type: mime || "application/json" });
     var url = URL.createObjectURL(blob);
     var a = document.createElement("a");
     a.href = url; a.download = filename;
     document.body.appendChild(a); a.click();
     document.body.removeChild(a);
     setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  }
+
+  // Self-contained one-page HTML report to hand to a parent/team (opens in any
+  // browser; print to PDF). Respects the current date-range filter.
+  var REPORT_CSS =
+    "*{box-sizing:border-box}body{margin:0;font:15px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1f2a44;background:#f4f6fb}" +
+    ".report{max-width:820px;margin:0 auto;padding:28px 22px}" +
+    ".report-head{display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #3f6fe0;padding-bottom:10px;margin-bottom:18px}" +
+    ".brandline{font-weight:800;color:#2f57bd;font-size:18px}" +
+    "h2{font-size:22px;margin:0 0 4px}h3{font-size:16px;margin:0 0 8px}" +
+    ".card{background:#fff;border:1px solid #e2e7f0;border-radius:12px;padding:18px;margin-bottom:0}" +
+    ".card.pad-sm{padding:12px}" +
+    ".flex-between{display:flex;align-items:center;justify-content:space-between;gap:12px}" +
+    ".grid{display:grid;gap:14px}.grid.cols-2{grid-template-columns:1fr 1fr}" +
+    ".muted{color:#667089}.small{font-size:13px}.tiny{font-size:12px}" +
+    ".mt-1{margin-top:8px}.mt-2{margin-top:16px}.mb-2{margin-bottom:14px}" +
+    ".chip{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600;background:#f0f3fa;color:#667089}" +
+    ".chip.purple{background:#efe9fb;color:#7c5cd6}.chip.success{background:#e2f5ec;color:#1f9d6b}.chip.warn{background:#fbefda;color:#d98a1a}.chip.danger{background:#fbe6e5;color:#d8443c}" +
+    ".summary-box{background:#f0f3fa;border-radius:10px;padding:10px 12px;line-height:1.5}" +
+    "svg.chart{display:block;max-width:100%;height:auto}.chart-wrap{overflow-x:auto}" +
+    "hr.sep{border:none;border-top:1px solid #e2e7f0;margin:18px 0}ul{margin:6px 0;padding-left:20px}" +
+    ".printbtn{background:#3f6fe0;color:#fff;border:none;border-radius:8px;padding:9px 15px;font-size:14px;cursor:pointer}" +
+    "@media print{.printbtn{display:none}body{background:#fff}.card{border-color:#ccc}}";
+
+  function buildStandaloneReport(id) {
+    var s = S.getStudent(id);
+    if (!s) return "";
+    var rangeNote = "";
+    var b = rangeBounds();
+    if (b) rangeNote = '<p class="tiny muted">Showing data from ' + fmtDate(b.from) + ' to ' + fmtDate(b.to) + '.</p>';
+    return '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8" />' +
+      '<meta name="viewport" content="width=device-width, initial-scale=1" />' +
+      '<title>Progress Report — ' + esc(fullName(s)) + '</title><style>' + REPORT_CSS + '</style></head><body><div class="report">' +
+      '<div class="report-head"><div><div class="brandline">Goal Tracker</div><div class="tiny muted">by Accessible Academics</div></div>' +
+      '<button class="printbtn" onclick="window.print()">🖨 Print / Save as PDF</button></div>' +
+      rangeNote +
+      studentReportHTML(id) +
+      '<p class="tiny muted" style="margin-top:24px">Generated ' + fmtDate(todayISO()) + ' · Confidential student record — handle per your district\'s privacy policy.</p>' +
+      '</div></body></html>';
   }
 
   // Goal + custom-measure modal plumbing (supports creating a type mid-goal-entry).
@@ -788,6 +914,23 @@
     "add-student": function () {
       openModal("Add student", studentForm(),
         '<button class="btn" data-close="1">Cancel</button><button class="btn primary" data-submit="student">Save</button>');
+    },
+    "mark-mastered": function (t) {
+      S.updateGoal(t.getAttribute("data-id"), t.getAttribute("data-goal"), { status: "met" });
+      toast("Goal marked mastered 🎉"); render();
+    },
+    "reactivate-goal": function (t) {
+      S.updateGoal(t.getAttribute("data-id"), t.getAttribute("data-goal"), { status: "active" });
+      toast("Goal reactivated"); render();
+    },
+    "toggle-closed": function () { state.showClosed = !state.showClosed; render(); },
+    "download-report": function (t) {
+      var id = t.getAttribute("data-id");
+      var s = S.getStudent(id);
+      if (!s) return;
+      var name = fullName(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      download("report-" + name + "-" + todayISO() + ".html", buildStandaloneReport(id), "text/html");
+      toast("Report downloaded");
     },
     "edit-student": function (t) {
       openModal("Edit student", studentForm(S.getStudent(t.getAttribute("data-id"))),
@@ -1018,6 +1161,13 @@
       openMeasureModal();
       return;
     }
+    if (action === "range-change") {
+      state.range.preset = el.value;
+      render();
+      return;
+    }
+    if (action === "range-from") { state.range.from = el.value; render(); return; }
+    if (action === "range-to") { state.range.to = el.value; render(); return; }
   });
 
   // Form submit (Enter key / native submit) for the data-entry form

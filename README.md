@@ -19,6 +19,14 @@ your device.**
 - **Short-term objectives** — break each goal into benchmarks you can check off.
 - **Auto progress summaries** — plain-English narrative for each goal (trend,
   change, and % of the way to target) shown on the goal and in reports.
+- **Aim line** — each chart projects a dashed line from baseline to target by
+  the annual-review date, so you can see at a glance if a student is on pace.
+- **Date-range filter** — view charts, data, and summaries for all time, the
+  last 30/90 days, or a custom window.
+- **Mastered goals** — one-click "Mark mastered"; met goals move to a separate
+  collapsible section so the active list stays focused.
+- **Shareable report** — download a clean, read-only one-page HTML report per
+  student (opens in any browser, print to PDF) to hand to a parent or team.
 - **Behavior Tracking (ABC)** — Antecedent → Behavior → Consequence logs with
   intensity and duration, plus frequency-by-student and by-intensity summaries.
 - **Accommodations** — record accommodations per student, organized by category.
