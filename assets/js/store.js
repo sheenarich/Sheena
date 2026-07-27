@@ -102,6 +102,7 @@
     if (!_cache.behaviors) _cache.behaviors = [];
     if (!_cache.settings) _cache.settings = { customMeasures: [] };
     if (!_cache.settings.customMeasures) _cache.settings.customMeasures = [];
+    if (!_cache.settings.customTemplates) _cache.settings.customTemplates = [];
     // Backfill objectives array on older goals.
     _cache.students.forEach(function (s) {
       (s.goals || []).forEach(function (g) { if (!g.objectives) g.objectives = []; });
@@ -283,6 +284,27 @@
   }
   function deleteCustomMeasure(key) {
     load().settings.customMeasures = load().settings.customMeasures.filter(function (m) { return m.key !== key; });
+    save();
+  }
+
+  // ---- User-saved goal templates --------------------------------------------
+  function customTemplates() { return load().settings.customTemplates.slice(); }
+  function addCustomTemplate(fields) {
+    var t = {
+      id: uid(),
+      label: fields.label || fields.area || "My template",
+      area: fields.area || "",
+      description: fields.description || "",
+      baseline: fields.baseline || "",
+      measurement: fields.measurement || "percent",
+      target: fields.target === "" || fields.target == null ? null : Number(fields.target)
+    };
+    load().settings.customTemplates.push(t);
+    save();
+    return t;
+  }
+  function deleteCustomTemplate(id) {
+    load().settings.customTemplates = load().settings.customTemplates.filter(function (t) { return t.id !== id; });
     save();
   }
 
@@ -549,6 +571,10 @@
           if (!haveKeys[m.key]) d.settings.customMeasures.push(m);
         });
       }
+      // Merge saved goal templates.
+      if (incoming.settings && incoming.settings.customTemplates) {
+        incoming.settings.customTemplates.forEach(function (t) { t.id = uid(); d.settings.customTemplates.push(t); });
+      }
     }
     save();
   }
@@ -689,6 +715,7 @@
     addObjective: addObjective, toggleObjective: toggleObjective, deleteObjective: deleteObjective,
     measures: measures, measure: measure, customMeasures: customMeasures,
     addCustomMeasure: addCustomMeasure, deleteCustomMeasure: deleteCustomMeasure,
+    customTemplates: customTemplates, addCustomTemplate: addCustomTemplate, deleteCustomTemplate: deleteCustomTemplate,
     summarize: summarize, parentSummary: parentSummary,
     addAccommodation: addAccommodation, deleteAccommodation: deleteAccommodation,
     addProgress: addProgress, deleteProgress: deleteProgress, progressForGoal: progressForGoal, valueOf: valueOf,

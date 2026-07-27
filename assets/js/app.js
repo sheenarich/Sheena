@@ -442,6 +442,7 @@
     html += '<div class="flex-between no-print mt-1 wrap" style="border-top:1px solid var(--border);padding-top:10px;gap:8px">' +
       '<span class="tiny muted">' + (pts.length ? pts.length + ' data point' + (pts.length === 1 ? "" : "s") + (rangeActive() ? " in range" : "") : (rangeActive() ? "No data in range" : "No data yet")) + '</span>' +
       '<span>' + masterBtn + (pts.length ? '<button class="btn sm ghost" data-action="view-goal-data" data-id="' + s.id + '" data-goal="' + g.id + '">View/edit data</button> ' : '') +
+      '<button class="btn sm ghost" data-action="save-as-template" data-id="' + s.id + '" data-goal="' + g.id + '" title="Save this goal\'s wording as a reusable template">☆ Save as template</button> ' +
       '<button class="btn sm ghost" data-action="edit-goal" data-id="' + s.id + '" data-goal="' + g.id + '">Edit goal</button> ' +
       '<button class="btn sm ghost" data-action="delete-goal" data-id="' + s.id + '" data-goal="' + g.id + '">Delete</button></span></div>';
 
@@ -1084,6 +1085,20 @@
     }
     html += '</div>';
 
+    // Saved goal templates
+    var tpls = S.customTemplates();
+    html += '<h3 class="section-title">My goal templates</h3><div class="card">';
+    if (!tpls.length) {
+      html += '<p class="small muted mb-0">You haven’t saved any templates yet. On any goal, click <strong>☆ Save as template</strong> to reuse its wording later.</p>';
+    } else {
+      html += '<div class="table-wrap"><table><tbody>' + tpls.map(function (t) {
+        return '<tr><td><span class="chip purple">' + esc(t.area || "Goal") + '</span> <strong class="small">' + esc(t.label) + '</strong>' +
+          '<br><span class="tiny muted">' + esc(truncate(t.description, 90)) + '</span></td>' +
+          '<td class="right no-print"><button class="btn sm ghost" data-action="del-template" data-id="' + esc(t.id) + '">Delete</button></td></tr>';
+      }).join("") + '</tbody></table></div>';
+    }
+    html += '</div>';
+
     html += '<h3 class="section-title">Other</h3><div class="card"><div class="flex gap-sm wrap">';
     if (S.isEmpty()) html += '<button class="btn" data-action="load-sample">Load sample data</button>';
     html += '<button class="btn danger" data-action="clear-all">Delete ALL data</button>';
@@ -1117,9 +1132,8 @@
     var measureOpts = Object.keys(mmap).map(function (k) { return { value: k, label: mmap[k].label }; });
     measureOpts.push({ value: "__new__", label: "＋ New custom type…" });
     var areaList = S.GOAL_AREAS.map(function (a) { return '<option value="' + esc(a) + '"></option>'; }).join("");
-    var tplOpts = S.GOAL_TEMPLATES.map(function (t, i) { return '<option value="' + i + '">' + esc(t.label) + '</option>'; }).join("");
     return '<form data-form="goal" data-id="' + studentId + '" data-goal="' + (g.id || "") + '">' +
-      (g.id ? "" : '<label class="field no-print"><span>Start from a template (optional)</span><select data-action="goal-template"><option value="">— Choose a template to pre-fill —</option>' + tplOpts + '</select></label>') +
+      (g.id ? "" : '<label class="field no-print"><span>Start from a template (optional)</span><select data-action="goal-template">' + templateOptionsHTML() + '</select></label>') +
       '<div class="form-grid">' +
       '<label class="field"><span>Goal area</span><input name="area" list="goal-areas" value="' + esc(g.area || "") + '" placeholder="Reading, Math, or type your own…" />' +
       '<datalist id="goal-areas">' + areaList + '</datalist></label>' +
@@ -1133,6 +1147,16 @@
       '</div>' +
       '<p class="tiny muted">Tip: for "Percent" use the target % (e.g. 90). For "Prompt level" the max is 5 = Independent. Pick "New custom type…" to define your own measure.</p>' +
       '</form>';
+  }
+
+  function templateOptionsHTML() {
+    var custom = S.customTemplates();
+    var html = '<option value="">— Choose a template to pre-fill —</option>';
+    if (custom.length) {
+      html += '<optgroup label="My templates">' + custom.map(function (t) { return '<option value="c:' + esc(t.id) + '">' + esc(t.label) + '</option>'; }).join("") + '</optgroup>';
+    }
+    html += '<optgroup label="Built-in">' + S.GOAL_TEMPLATES.map(function (t, i) { return '<option value="b:' + i + '">' + esc(t.label) + '</option>'; }).join("") + '</optgroup>';
+    return html;
   }
 
   function measureForm() {
@@ -1513,6 +1537,20 @@
         S.deleteGoal(sid, gid); toast("Goal deleted"); render();
       }
     },
+    "save-as-template": function (t) {
+      var sid = t.getAttribute("data-id"), gid = t.getAttribute("data-goal");
+      var g = S.getGoal(sid, gid);
+      if (!g) return;
+      var defLabel = g.area + (g.description ? " — " + truncate(g.description, 30) : "");
+      openModal("Save as template",
+        '<form data-form="template" data-id="' + sid + '" data-goal="' + gid + '">' +
+        '<label class="field"><span>Template name</span><input name="label" value="' + esc(defLabel) + '" /></label>' +
+        '<p class="tiny muted mb-0">Saves this goal’s wording, area, measurement, and target as a reusable starter you can pick when adding future goals. No student-specific data is saved.</p></form>',
+        '<button class="btn" data-close="1">Cancel</button><button class="btn primary" data-submit="template">Save template</button>');
+    },
+    "del-template": function (t) {
+      if (confirm("Delete this saved template?")) { S.deleteCustomTemplate(t.getAttribute("data-id")); toast("Template deleted"); render(); }
+    },
     "add-accom": function (t) {
       openModal("Add accommodation", accomForm(t.getAttribute("data-id")),
         '<button class="btn" data-close="1">Cancel</button><button class="btn primary" data-submit="accom">Save</button>');
@@ -1700,6 +1738,15 @@
       toast("Saved " + saved + " data point" + (saved === 1 ? "" : "s"));
       render();
     },
+    template: function () {
+      var form = $('form[data-form="template"]');
+      if (!form) return;
+      var g = S.getGoal(form.getAttribute("data-id"), form.getAttribute("data-goal"));
+      if (!g) { closeModal(); return; }
+      var label = (form.querySelector('[name="label"]').value || "").trim() || g.area || "My template";
+      S.addCustomTemplate({ label: label, area: g.area, description: g.description, baseline: g.baseline, measurement: g.measurement, target: g.target });
+      closeModal(); toast("Template saved ☆");
+    },
     measure: function () {
       var form = $('form[data-form="measure"]');
       var d = readForm(form);
@@ -1764,7 +1811,13 @@
     }
     if (action === "goal-template") {
       if (el.value === "") return;
-      var tpl = S.GOAL_TEMPLATES[Number(el.value)];
+      var tpl;
+      if (el.value.charAt(0) === "c") {
+        var tid = el.value.slice(2);
+        tpl = S.customTemplates().filter(function (t) { return t.id === tid; })[0];
+      } else {
+        tpl = S.GOAL_TEMPLATES[Number(el.value.slice(2))];
+      }
       var gf = el.closest("form");
       if (tpl && gf) {
         gf.querySelector('[name="area"]').value = tpl.area;

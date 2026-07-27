@@ -13,7 +13,9 @@ your device.**
   case manager, and key IEP dates.
 - **Goal templates** — insert a fill-in-the-blank IEP goal starter (reading,
   math, writing, behavior, communication, adaptive) and tweak it, instead of
-  writing every goal from scratch.
+  writing every goal from scratch. You can also **save your own goals as
+  reusable templates** (☆ Save as template) so your best wording becomes a
+  one-click starter for future goals.
 - **IEP Goals + Progress Data** — write measurable goals (percent-correct,
   frequency, duration, prompt level, rating, or your own **custom measurement
   types**), log data points, and see an automatic progress-over-time chart with
