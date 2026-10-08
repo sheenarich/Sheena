@@ -144,6 +144,7 @@ select { background: var(--bg); border: 1px solid var(--line); border-radius: 10
 .fr { display: inline-grid; vertical-align: middle; text-align: center; font-family: var(--display); font-weight: 700; line-height: 1.05; margin: 0 .12em; font-variant-numeric: tabular-nums; }
 .fr > span:first-child { border-bottom: 2px solid currentColor; padding: 0 .15em; }
 .fr.a { color: var(--a-ink); } .fr.b { color: var(--b-ink); }
+.mixed.a { color: var(--a-ink); } .mixed.b { color: var(--b-ink); }
 .mixed { display: inline-flex; align-items: center; font-family: var(--display); font-weight: 700; }
 .result-big .fr { font-size: .78em; }
 
@@ -203,6 +204,34 @@ svg .pl.a { fill: var(--on-a); } svg .pl.b { fill: var(--on-b); } svg .pl.empty 
 .legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: .9rem; color: var(--muted); }
 .legend i { display: inline-block; width: 14px; height: 14px; border-radius: 3px; vertical-align: -2px; margin-right: 6px; border: 1.5px solid var(--piece-line); }
 
+/* mixed numbers */
+.fcard-wrap { display: flex; align-items: center; gap: 4px; }
+.fcard.whole .stepper output { font-size: 3.4rem; }
+.fcard.whole .who { margin-top: 0; }
+
+/* practice score */
+.score { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 22px; border-top: 1px solid var(--line); padding-top: 14px; }
+.stat { display: grid; gap: 2px; }
+.stat b { font-family: var(--display); font-weight: 800; font-size: 1.6rem; line-height: 1; font-variant-numeric: tabular-nums; }
+.stat span { font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.history { display: grid; gap: 4px; min-width: 0; }
+.dots { display: flex; flex-wrap: wrap; gap: 5px; min-height: 14px; }
+.dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--muted); }
+.dot.first { background: var(--good); border-color: var(--good); }
+.dot.retry { background: var(--b); border-color: var(--b); }
+.dot.shown { background: transparent; }
+.dot-key { font-size: .78rem; color: var(--muted); display: flex; flex-wrap: wrap; gap: 2px 12px; align-items: center; }
+.dot-key .dot { display: inline-block; width: 10px; height: 10px; vertical-align: -1px; margin-right: 4px; }
+.score .linkish { margin-left: auto; }
+
+/* tiles and area models */
+svg .one { fill: var(--empty); stroke: var(--piece-line); stroke-width: 2.5; }
+svg .one-label { fill: var(--fg); font-family: var(--display); font-weight: 800; font-size: 18px; text-anchor: middle; dominant-baseline: central; }
+svg .tile { stroke: var(--piece-line); stroke-width: 2; }
+svg .tile.empty { fill: none; stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: 5 4; }
+svg .group-outline { fill: none; stroke: var(--piece-line); stroke-width: 3.5; }
+.wholes.area { max-width: calc(var(--cols, 1) * 300px); }
+
 @media (max-width: 560px) {
   .mrow { grid-template-columns: 54px minmax(0, 1fr); gap: 8px; }
   .mlabel { font-size: 1.15rem; }
@@ -234,6 +263,7 @@ svg .pl.a { fill: var(--on-a); } svg .pl.b { fill: var(--on-b); } svg .pl.empty 
     <div class="problem-top">
       <div class="eyebrow" id="eyebrow"></div>
       <div class="gen">
+        <label class="switch" for="mixed"><input type="checkbox" id="mixed"> Mixed numbers</label>
         <label for="level">Level</label>
         <select id="level">
           <option value="like">Same denominators</option>
@@ -245,6 +275,7 @@ svg .pl.a { fill: var(--on-a); } svg .pl.b { fill: var(--on-b); } svg .pl.empty 
     </div>
     <div class="equation" id="equation"></div>
     <div id="feedback"></div>
+    <div id="score"></div>
   </section>
 
   <div class="legend" id="legend"></div>
@@ -273,6 +304,17 @@ svg .pl.a { fill: var(--on-a); } svg .pl.b { fill: var(--on-b); } svg .pl.empty 
     if (s.n > s.d) return `<span class="mixed">${Math.floor(s.n / s.d)}${fr(s.n % s.d, s.d, cls)}</span>`;
     return fr(s.n, s.d, cls);
   }
+  // as entered (not simplified): 7/4 shows as 1 3/4 when mixed numbers are on
+  function lab(f, cls = "") {
+    if (!state.mixed || f.n < f.d || f.d === 1) return fr(f.n, f.d, cls);
+    const w = Math.floor(f.n / f.d), r = f.n % f.d;
+    return r ? `<span class="mixed ${cls}">${w}${fr(r, f.d, cls)}</span>` : `<span class="mixed">${w}</span>`;
+  }
+  function txt(f) {
+    if (!state.mixed || f.n < f.d || f.d === 1) return `${f.n}/${f.d}`;
+    const w = Math.floor(f.n / f.d), r = f.n % f.d;
+    return r ? `${w} ${r}/${f.d}` : `${w}`;
+  }
   // equation chain: original, simplified, mixed (dropping duplicates)
   function chain(n, d) {
     const parts = [fr(n, d)];
@@ -289,14 +331,30 @@ svg .pl.a { fill: var(--on-a); } svg .pl.b { fill: var(--on-b); } svg .pl.empty 
     subtract: { label: "Subtract", op: "−", std: "4.NF.B.3 · 5.NF.A.1", verb: "Subtract the fractions" },
   };
   const state = {
-    mode: "compare", model: "bar", practice: false, level: "unlike",
-    revealed: false, feedback: null, answer: "",
+    mode: "compare", model: "bar", practice: false, level: "unlike", mixed: false,
+    revealed: false, feedback: null, answer: "", tries: 0,
+    score: { correct: 0, total: 0, streak: 0, best: 0, history: [] },
     pairs: {
       compare:  [{ n: 2, d: 3 }, { n: 3, d: 4 }],
       add:      [{ n: 1, d: 2 }, { n: 1, d: 3 }],
       subtract: [{ n: 5, d: 6 }, { n: 1, d: 4 }],
     },
   };
+  const SCORE_KEY = "fraction-models-lab:score";
+  try {
+    const saved = JSON.parse(localStorage.getItem(SCORE_KEY) || "null");
+    if (saved && typeof saved.total === "number") state.score = { ...state.score, ...saved };
+  } catch (e) {}
+  const saveScore = () => { try { localStorage.setItem(SCORE_KEY, JSON.stringify(state.score)); } catch (e) {} };
+  function record(kind) { // kind: first | retry | shown
+    const sc = state.score;
+    sc.total++;
+    if (kind !== "shown") sc.correct++;
+    sc.streak = kind === "first" ? sc.streak + 1 : 0;
+    sc.best = Math.max(sc.best, sc.streak);
+    sc.history = [...sc.history, kind].slice(-20);
+    saveScore();
+  }
   try {
     const h = location.hash.slice(1);
     if (MODES[h]) state.mode = h;
@@ -327,7 +385,7 @@ svg .pl.a { fill: var(--on-a); } svg .pl.b { fill: var(--on-b); } svg .pl.empty 
       if (c.includes("gone")) {
         const m = Math.min(pw, H) * 0.28, cx = x + pw / 2, cy = H / 2;
         s += `<path class="x" d="M${cx - m} ${cy - m}L${cx + m} ${cy + m}M${cx + m} ${cy - m}L${cx - m} ${cy + m}"/>`;
-      } else if (pw >= 34) {
+      } else if (pw >= 34 * labelScale) {
         s += `<text class="pl ${c}" x="${x + pw / 2}" y="${H / 2}">1/${den}</text>`;
       }
     });
@@ -361,12 +419,60 @@ svg .pl.a { fill: var(--on-a); } svg .pl.b { fill: var(--on-b); } svg .pl.empty 
     return s + `<circle class="frame" cx="${c}" cy="${c}" r="${r}"/></svg>`;
   }
 
+  // Fraction tiles: a "1" strip with the pieces laid out as separate tiles beneath it
+  function tilesSVG(den, sl, group) {
+    const W = 400, pw = W / den, ty = 46, th = 54;
+    let s = `<svg viewBox="-2 -2 ${W + 4} ${ty + th + 6}" role="img" aria-label="${ariaFor(sl, den)}">`;
+    s += `<rect class="one" x="0" y="0" width="${W}" height="36" rx="6"/><text class="one-label" x="${W / 2}" y="18">1</text>`;
+    sl.forEach((c, i) => {
+      const x = i * pw + 2, w = pw - 4;
+      s += `<rect class="tile pc ${c}" x="${x}" y="${ty}" width="${w}" height="${th}" rx="6"/>`;
+      if (c.includes("gone")) {
+        const m = Math.min(w, th) * 0.26, cx = x + w / 2, cy = ty + th / 2;
+        s += `<path class="x" d="M${cx - m} ${cy - m}L${cx + m} ${cy + m}M${cx + m} ${cy - m}L${cx - m} ${cy + m}"/>`;
+      } else if (c !== "empty" && pw >= 34 * labelScale) {
+        s += `<text class="pl ${c}" x="${x + w / 2}" y="${ty + th / 2}">1/${den}</text>`;
+      }
+    });
+    if (group > 1) for (let g = 0; g < den / group; g++) {
+      s += `<rect class="group-outline" x="${g * group * pw}" y="${ty - 3}" width="${group * pw}" height="${th + 6}" rx="8"/>`;
+    }
+    return s + `</svg>`;
+  }
+
+  // Area model: the whole is a rectangle cut into a grid. When pieces were re-cut,
+  // each original piece is one column and the new cuts run across it.
+  function areaSVG(den, sl, group) {
+    let rows, cols;
+    if (group > 1) { rows = group; cols = den / group; }
+    else { rows = 1; for (let r = 1; r * r <= den; r++) if (den % r === 0) rows = r; cols = den / rows; }
+    const W = 240, H = 160, cw = W / cols, rh = H / rows;
+    let s = `<svg viewBox="-2 -2 ${W + 4} ${H + 4}" role="img" aria-label="${ariaFor(sl, den)}">`;
+    sl.forEach((c, i) => { // fill column by column
+      const x = Math.floor(i / rows) * cw, y = (i % rows) * rh;
+      s += `<rect class="pc ${c}" x="${x}" y="${y}" width="${cw}" height="${rh}"/>`;
+      if (c.includes("gone")) {
+        const m = Math.min(cw, rh) * 0.26, cx = x + cw / 2, cy = y + rh / 2;
+        s += `<path class="x" d="M${cx - m} ${cy - m}L${cx + m} ${cy + m}M${cx + m} ${cy - m}L${cx - m} ${cy + m}"/>`;
+      } else if (cw >= 36 * labelScale && rh >= 28 * labelScale) {
+        s += `<text class="pl ${c}" x="${x + cw / 2}" y="${y + rh / 2}">1/${den}</text>`;
+      }
+    });
+    for (let j = 1; j < cols; j++) s += `<line class="div${group > 1 ? " major" : ""}" x1="${j * cw}" x2="${j * cw}" y1="0" y2="${H}"/>`;
+    for (let r = 1; r < rows; r++) s += `<line class="div${group > 1 ? " minor" : ""}" x1="0" x2="${W}" y1="${r * rh}" y2="${r * rh}"/>`;
+    return s + `<rect class="frame" x="0" y="0" width="${W}" height="${H}" rx="3"/></svg>`;
+  }
+
+  let labelScale = 1; // more wholes per row means smaller drawings, so labels need wider pieces
+  const RENDER = { bar: barSVG, circle: pieSVG, area: areaSVG, tiles: tilesSVG };
+
   // rows: [{label, den, segs, group}] drawn with aligned wholes
   function models(rows) {
     const built = rows.map(r => ({ ...r, slices: slicesFor(r.segs, r.den) }));
-    const cols = Math.max(...built.map(r => r.slices.length));
+    const cols = Math.min(4, Math.max(...built.map(r => r.slices.length)));
+    labelScale = cols;
     return built.map(r => {
-      const svgs = r.slices.map(sl => state.model === "bar" ? barSVG(r.den, sl, r.group || 1) : pieSVG(r.den, sl, r.group || 1)).join("");
+      const svgs = r.slices.map(sl => RENDER[state.model](r.den, sl, r.group || 1)).join("");
       return `<div class="mrow"><div class="mlabel">${r.label}</div><div class="wholes ${state.model}" style="--cols:${cols}" data-cols="${cols}">${svgs}</div></div>`;
     }).join("");
   }
@@ -375,7 +481,7 @@ svg .pl.a { fill: var(--on-a); } svg .pl.b { fill: var(--on-b); } svg .pl.empty 
     const max = Math.max(1, Math.ceil(Math.max(val(a), val(b))));
     const W = 640, x0 = 30, x1 = W - 30, y = 70;
     const X = v => x0 + (x1 - x0) * v / max;
-    let s = `<svg class="nl" viewBox="0 0 ${W} 150" role="img" aria-label="Number line from 0 to ${max} showing ${a.n}/${a.d} and ${b.n}/${b.d}">`;
+    let s = `<svg class="nl" viewBox="0 0 ${W} 150" role="img" aria-label="Number line from 0 to ${max} showing ${txt(a)} and ${txt(b)}">`;
     s += `<line class="axis" x1="${x0}" x2="${x1}" y1="${y}" y2="${y}"/>`;
     const steps = max * L;
     for (let k = 0; k <= steps; k++) {
@@ -385,9 +491,9 @@ svg .pl.a { fill: var(--on-a); } svg .pl.b { fill: var(--on-b); } svg .pl.empty 
     }
     const xa = X(val(a)), xb = X(val(b));
     s += `<line class="stem a" x1="${xa}" x2="${xa}" y1="${y}" y2="${y - 36}"/><circle class="pt a" cx="${xa}" cy="${y}" r="8"/>`;
-    s += `<text class="plabel a" x="${xa}" y="${y - 44}">${a.n}/${a.d}</text>`;
+    s += `<text class="plabel a" x="${xa}" y="${y - 44}">${txt(a)}</text>`;
     s += `<line class="stem b" x1="${xb}" x2="${xb}" y1="${y}" y2="${y + 50}"/><circle class="pt b" cx="${xb}" cy="${y}" r="${cmp(a, b) === 0 ? 5 : 8}"/>`;
-    s += `<text class="plabel b" x="${xb}" y="${y + 72}">${b.n}/${b.d}</text>`;
+    s += `<text class="plabel b" x="${xb}" y="${y + 72}">${txt(b)}</text>`;
     return `<div class="nl-wrap">${s}</svg></div>`;
   }
 
@@ -415,10 +521,10 @@ svg .pl.a { fill: var(--on-a); } svg .pl.b { fill: var(--on-b); } svg .pl.empty 
     if (a.d === b.d) return `Both fractions are counted in ${pieceName(a.d)}, the same size piece. ${a.n} pieces is ${c === 0 ? "the same as" : word} ${b.n} pieces.`;
     if (a.n === b.n && c !== 0) {
       const big = a.d < b.d ? a : b;
-      return `Both fractions have ${a.n} piece${a.n === 1 ? "" : "s"}. ${pieceName(big.d)[0].toUpperCase() + pieceName(big.d).slice(1)} are bigger pieces than ${pieceName(big === a ? b.d : a.d)}, so ${big.n}/${big.d} is greater.`;
+      return `Both fractions have ${a.n} piece${a.n === 1 ? "" : "s"}. ${pieceName(big.d)[0].toUpperCase() + pieceName(big.d).slice(1)} are bigger pieces than ${pieceName(big === a ? b.d : a.d)}, so ${txt(big)} is greater.`;
     }
     const A = a.n * L / a.d, B = b.n * L / b.d;
-    return `With the same size pieces, ${a.n}/${a.d} is ${A} ${pieceName(L)} and ${b.n}/${b.d} is ${B} ${pieceName(L)}. ${A} is ${word} ${B}.`;
+    return `With the same size pieces, ${txt(a)} is ${A} ${pieceName(L)} and ${txt(b)} is ${B} ${pieceName(L)}. ${A} is ${word} ${B}.`;
   }
 
   function buildSteps() {
@@ -429,13 +535,16 @@ svg .pl.a { fill: var(--on-a); } svg .pl.b { fill: var(--on-b); } svg .pl.empty 
     const out = [];
 
     const step1Rows = [
-      { label: fr(a.n, a.d, "a"), den: a.d, segs: [{ n: a.n, cls: "a" }] },
-      { label: fr(b.n, b.d, "b"), den: b.d, segs: [{ n: b.n, cls: "b" }] },
+      { label: lab(a, "a"), den: a.d, segs: [{ n: a.n, cls: "a" }] },
+      { label: lab(b, "b"), den: b.d, segs: [{ n: b.n, cls: "b" }] },
     ];
+    // mixed numbers: rename as fractions greater than 1 before anything else
+    const toImproper = [[a, "a"], [b, "b"]].filter(([f]) => state.mixed && f.n > f.d && f.n % f.d);
+    const mixedEq = toImproper.length ? `<p class="caption">Rename each mixed number as a fraction. Every whole is ${toImproper.map(([f]) => `${f.d} ${pieceName(f.d)}`).join(", and ")}.</p><div class="eqline">${toImproper.map(([f, c]) => `${lab(f, c)} = ${fr(`${Math.floor(f.n / f.d)} × ${f.d} + ${f.n % f.d}`, f.d, c)} = ${fr(f.n, f.d, c)}`).join(`<span style="width:24px"></span>`)}</div>` : "";
     const s1cap = `Each whole is the same size. The denominator tells how many equal pieces the whole is cut into. The numerator tells how many pieces are shaded.`;
 
     if (state.mode === "compare") {
-      out.push(stepHTML(1, "Build each fraction", s1cap, models(step1Rows)));
+      out.push(stepHTML(1, "Build each fraction", s1cap, mixedEq + models(step1Rows)));
       if (hidden) {
         out.push(stepHTML(2, "Make a prediction", "", lockedNote("Which shaded part is bigger? Choose &lt;, = or &gt; above. The common pieces and the number line appear after you check.")));
         return out.join("");
@@ -444,12 +553,12 @@ svg .pl.a { fill: var(--on-a); } svg .pl.b { fill: var(--on-b); } svg .pl.empty 
       out.push(stepHTML(2, "Cut into same-size pieces", r.cap, r.body));
       out.push(stepHTML(3, "Place both on a number line", `Fractions farther to the right are greater. The space between 0 and 1 is cut into ${pieceName(L)}.`, numberLine(a, b, L)));
       const c = cmp(a, b);
-      out.push(`<div class="verdict-box"><div class="big">${fr(a.n, a.d, "a")} ${SYM[c]} ${fr(b.n, b.d, "b")}</div><p>${compareReason(a, b, L)}</p></div>`);
+      out.push(`<div class="verdict-box"><div class="big">${lab(a, "a")} ${SYM[c]} ${lab(b, "b")}</div><p>${compareReason(a, b, L)}</p></div>`);
       return out.join("");
     }
 
     if (state.mode === "add") {
-      out.push(stepHTML(1, "Build each fraction", s1cap, models(step1Rows)));
+      out.push(stepHTML(1, "Build each fraction", s1cap, mixedEq + models(step1Rows)));
       const r = renameStep(a, b, L);
       out.push(stepHTML(2, a.d === b.d ? "Check the piece size" : "Rename with a common denominator", r.cap, r.body));
       if (hidden) {
@@ -457,18 +566,18 @@ svg .pl.a { fill: var(--on-a); } svg .pl.b { fill: var(--on-b); } svg .pl.empty 
         return out.join("");
       }
       const S = r.A + r.B;
-      const cap = `Put the pieces together. The pieces are all ${pieceName(L)}, so add the numerators and keep the denominator.${S > L ? " The sum is more than one whole, so it fills a second whole." : ""}`;
+      const cap = `Put the pieces together. The pieces are all ${pieceName(L)}, so add the numerators and keep the denominator.${S > L ? " The sum is more than one whole, so the pieces spill into the next whole." : ""}`;
       const eq = `<div class="eqline">${fr(r.A, L, "a")} + ${fr(r.B, L, "b")} = ${fr(`${r.A} + ${r.B}`, L)} = ${chain(S, L)}</div>`;
       out.push(stepHTML(3, "Join the pieces", cap, eq + models([{ label: nice(S, L), den: L, segs: [{ n: r.A, cls: "a" }, { n: r.B, cls: "b" }] }])));
       return out.join("");
     }
 
     // subtract
-    out.push(stepHTML(1, "Build each fraction", s1cap.replace("are shaded.", "are shaded. Start with the first fraction and take away the second."), models(step1Rows)));
+    out.push(stepHTML(1, "Build each fraction", s1cap.replace("are shaded.", "are shaded. Start with the first fraction and take away the second."), mixedEq + models(step1Rows)));
     const r = renameStep(a, b, L);
     out.push(stepHTML(2, a.d === b.d ? "Check the piece size" : "Rename with a common denominator", r.cap, r.body));
     if (cmp(a, b) < 0) {
-      out.push(`<div class="notice">${a.n}/${a.d} is less than ${b.n}/${b.d}, so there are not enough pieces to take away. <button class="btn ghost" data-action="swap">Swap the fractions</button></div>`);
+      out.push(`<div class="notice">${txt(a)} is less than ${txt(b)}, so there are not enough pieces to take away. <button class="btn ghost" data-action="swap">Swap the fractions</button></div>`);
       return out.join("");
     }
     if (hidden) {
@@ -484,14 +593,21 @@ svg .pl.a { fill: var(--on-a); } svg .pl.b { fill: var(--on-b); } svg .pl.empty 
 
   // ---------- equation (hero) ----------
   function stepperHTML(idx, part, value, min, max) {
-    const name = `${idx === 0 ? "first" : "second"} fraction ${part === "n" ? "numerator" : "denominator"}`;
+    const name = `${idx === 0 ? "first" : "second"} fraction ${{ w: "whole number", n: "numerator", d: "denominator" }[part]}`;
     return `<div class="stepper">
       <button data-action="step" data-i="${idx}" data-p="${part}" data-delta="-1" aria-label="Decrease ${name}" ${value <= min ? "disabled" : ""}>−</button>
       <output aria-label="${name}">${value}</output>
       <button data-action="step" data-i="${idx}" data-p="${part}" data-delta="1" aria-label="Increase ${name}" ${value >= max ? "disabled" : ""}>+</button>
     </div>`;
   }
-  const fcard = (f, i) => `<div class="fcard ${i ? "b" : "a"}">${stepperHTML(i, "n", f.n, 0, f.d * 2)}<div class="vinculum"></div>${stepperHTML(i, "d", f.d, 1, 12)}</div>`;
+  function fcard(f, i) {
+    const cls = i ? "b" : "a";
+    if (!state.mixed) return `<div class="fcard ${cls}">${stepperHTML(i, "n", f.n, 0, f.d * 2)}<div class="vinculum"></div>${stepperHTML(i, "d", f.d, 1, 12)}</div>`;
+    const w = Math.floor(f.n / f.d), r = f.n % f.d;
+    return `<div class="fcard-wrap"><div class="fcard whole ${cls}">${stepperHTML(i, "w", w, 0, MAX_WHOLE)}<div class="who">whole</div></div>` +
+      `<div class="fcard ${cls}">${stepperHTML(i, "n", r, 0, f.d - 1)}<div class="vinculum"></div>${stepperHTML(i, "d", f.d, 1, 12)}</div></div>`;
+  }
+  const MAX_WHOLE = 2;
 
   function correctResult() {
     const [a, b] = state.pairs[state.mode];
@@ -529,20 +645,36 @@ svg .pl.a { fill: var(--on-a); } svg .pl.b { fill: var(--on-b); } svg .pl.empty 
     const fb = state.feedback;
     let fbh = "";
     if (state.practice) {
-      if (fb) fbh = `<div class="feedback ${fb.ok ? "good" : "bad"}">${fb.msg}${!fb.ok && !state.revealed ? ` <button class="linkish" data-action="reveal">Show me the answer</button>` : ""}</div>`;
+      const next = state.revealed ? ` <button class="btn" data-action="new">Next problem</button>` : "";
+      if (fb) fbh = `<div class="feedback ${fb.ok ? "good" : "bad"}">${fb.msg}${!fb.ok && !state.revealed ? ` <button class="linkish" data-action="reveal">Show me the answer</button>` : ""}${next}</div>`;
+      else if (state.revealed) fbh = `<div class="caption">Here is the answer, worked out below.${next}</div>`;
       else if (!state.revealed && !(state.mode === "subtract" && cmp(a, b) < 0)) fbh = `<div class="caption">${state.mode === "compare" ? "Look at the models, then choose a symbol." : "Type a fraction like 5/6, or a mixed number like 1 1/6."} <button class="linkish" data-action="reveal">Show me</button></div>`;
     }
     document.getElementById("feedback").innerHTML = fbh;
+
+    const sc = state.score;
+    const label = { first: "Correct on the first try", retry: "Correct after a retry", shown: "Answer shown" };
+    document.getElementById("score").innerHTML = !state.practice ? "" : `<div class="score" aria-label="Practice score">
+      <div class="stat"><b>${sc.correct} / ${sc.total}</b><span>Correct</span></div>
+      <div class="stat"><b>${sc.streak}</b><span>First-try streak</span></div>
+      <div class="stat"><b>${sc.best}</b><span>Best streak</span></div>
+      <div class="history">
+        <div class="dots" role="img" aria-label="Last ${sc.history.length} problems">${sc.history.map(k => `<i class="dot ${k}" title="${label[k]}"></i>`).join("") || `<span class="dot-key">No problems finished yet</span>`}</div>
+        <div class="dot-key"><span><i class="dot first"></i>first try</span><span><i class="dot retry"></i>after a retry</span><span><i class="dot shown"></i>answer shown</span></div>
+      </div>
+      <button class="linkish" data-action="reset-score">Reset score</button>
+    </div>`;
   }
 
   // ---------- chrome ----------
   function renderChrome() {
     document.getElementById("tabs").innerHTML = Object.entries(MODES).map(([k, m]) =>
       `<button role="tab" aria-selected="${k === state.mode}" data-action="mode" data-mode="${k}">${m.label}</button>`).join("");
-    document.getElementById("models").innerHTML = [["bar", "Bars"], ["circle", "Circles"]].map(([k, l]) =>
+    document.getElementById("models").innerHTML = [["bar", "Bars"], ["circle", "Circles"], ["area", "Area"], ["tiles", "Tiles"]].map(([k, l]) =>
       `<button aria-pressed="${k === state.model}" data-action="model" data-model="${k}">${l}</button>`).join("");
     document.getElementById("eyebrow").innerHTML = `${MODES[state.mode].verb}<span class="std">${MODES[state.mode].std}</span>`;
     document.getElementById("practice").checked = state.practice;
+    document.getElementById("mixed").checked = state.mixed;
     document.getElementById("level").value = state.level;
     const leg = [`<span><i style="background:var(--a)"></i>First fraction</span>`, `<span><i style="background:var(--b)"></i>Second fraction</span>`];
     if (state.mode === "subtract") leg.push(`<span><i style="background:var(--gone-bg);border-color:var(--gone)"></i>Taken away</span>`);
@@ -556,7 +688,7 @@ svg .pl.a { fill: var(--on-a); } svg .pl.b { fill: var(--on-b); } svg .pl.empty 
     document.getElementById("steps").innerHTML = buildSteps();
   }
 
-  function resetAttempt() { state.revealed = false; state.feedback = null; state.answer = ""; }
+  function resetAttempt() { state.revealed = false; state.feedback = null; state.answer = ""; state.tries = 0; }
 
   // ---------- problems ----------
   const DENS = [2, 3, 4, 5, 6, 8, 10, 12];
@@ -572,6 +704,10 @@ svg .pl.a { fill: var(--on-a); } svg .pl.b { fill: var(--on-b); } svg .pl.empty 
       if (lcm(d1, d2) > 24) continue; // keep the shared pieces countable
       let a = { n: 1 + Math.floor(Math.random() * (d1 - 1)), d: d1 };
       let b = { n: 1 + Math.floor(Math.random() * (d2 - 1)), d: d2 };
+      if (state.mixed) { // 1 or 2 wholes on the first, 0 to 2 on the second
+        a.n += (1 + Math.floor(Math.random() * MAX_WHOLE)) * a.d;
+        b.n += Math.floor(Math.random() * (MAX_WHOLE + 1)) * b.d;
+      }
       if (a.n === b.n && a.d === b.d) continue;
       if (state.mode === "subtract") {
         if (cmp(a, b) === 0) continue;
@@ -605,10 +741,12 @@ svg .pl.a { fill: var(--on-a); } svg .pl.b { fill: var(--on-b); } svg .pl.empty 
     if (cmp(guess, r) === 0) {
       const s = simplify(r.n, r.d);
       const simplest = gcd(guess.n, guess.d) === 1;
+      record(state.tries ? "retry" : "first");
       state.revealed = true;
       state.feedback = { ok: true, msg: simplest ? "Correct! The models below show why." : `Correct! In simplest form that is ${s.d === 1 ? s.n : s.n + "/" + s.d}${s.n > s.d && s.d !== 1 ? `, or ${Math.floor(s.n / s.d)} ${s.n % s.d}/${s.d}` : ""}.` };
     } else {
       const L = lcm(...state.pairs[state.mode].map(f => f.d));
+      state.tries++;
       state.feedback = { ok: false, msg: `Not yet. Use the ${pieceName(L)} in step 2: ${state.mode === "add" ? "how many pieces are there in all?" : "how many pieces are left?"}` };
     }
     render();
@@ -629,20 +767,27 @@ svg .pl.a { fill: var(--on-a); } svg .pl.b { fill: var(--on-b); } svg .pl.empty 
     else if (act === "step") {
       const f = state.pairs[state.mode][+el.dataset.i];
       const delta = +el.dataset.delta;
-      if (el.dataset.p === "d") { f.d = Math.min(12, Math.max(1, f.d + delta)); f.n = Math.min(f.n, f.d * 2); }
-      else f.n = Math.min(f.d * 2, Math.max(0, f.n + delta));
+      const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+      const w = Math.floor(f.n / f.d), r = f.n % f.d;
+      if (state.mixed) { // edit the whole, numerator and denominator of a mixed number separately
+        if (el.dataset.p === "w") f.n = clamp(w + delta, 0, MAX_WHOLE) * f.d + r;
+        else if (el.dataset.p === "n") f.n = w * f.d + clamp(r + delta, 0, f.d - 1);
+        else { f.d = clamp(f.d + delta, 1, 12); f.n = w * f.d + Math.min(r, f.d - 1); }
+      } else if (el.dataset.p === "d") { f.d = clamp(f.d + delta, 1, 12); f.n = Math.min(f.n, f.d * 2); }
+      else f.n = clamp(f.n + delta, 0, f.d * 2);
       resetAttempt(); render();
       const again = document.querySelector(`[data-action="step"][data-i="${el.dataset.i}"][data-p="${el.dataset.p}"][data-delta="${el.dataset.delta}"]`);
       if (again && !again.disabled) again.focus();
     }
     else if (act === "new") newProblem();
+    else if (act === "reset-score") { state.score = { correct: 0, total: 0, streak: 0, best: 0, history: [] }; saveScore(); render(); }
     else if (act === "swap") { const p = state.pairs[state.mode]; state.pairs[state.mode] = [p[1], p[0]]; resetAttempt(); render(); }
-    else if (act === "reveal") { state.revealed = true; if (!state.feedback || !state.feedback.ok) state.feedback = null; render(); }
+    else if (act === "reveal") { if (!state.revealed) record("shown"); state.revealed = true; if (!state.feedback || !state.feedback.ok) state.feedback = null; render(); }
     else if (act === "pick") {
       const [a, b] = state.pairs[state.mode];
       const right = SYM[cmp(a, b)];
-      if (el.dataset.sym === right) { state.revealed = true; state.feedback = { ok: true, msg: "Correct! Steps 2 and 3 show why." }; }
-      else state.feedback = { ok: false, msg: `Not quite. Look at how much of each whole is shaded.` };
+      if (el.dataset.sym === right) { record(state.tries ? "retry" : "first"); state.revealed = true; state.feedback = { ok: true, msg: "Correct! Steps 2 and 3 show why." }; }
+      else state.tries++, state.feedback = { ok: false, msg: `Not quite. Look at how much of each whole is shaded.` };
       render();
     }
   });
@@ -652,6 +797,11 @@ svg .pl.a { fill: var(--on-a); } svg .pl.b { fill: var(--on-b); } svg .pl.empty 
     checkAnswer(document.getElementById("answer").value);
   });
   document.getElementById("practice").addEventListener("change", e => { state.practice = e.target.checked; resetAttempt(); render(); });
+  document.getElementById("mixed").addEventListener("change", e => {
+    state.mixed = e.target.checked;
+    if (!state.mixed) Object.values(state.pairs).flat().forEach(f => { f.n = Math.min(f.n, f.d * 2); });
+    resetAttempt(); render();
+  });
   document.getElementById("level").addEventListener("change", e => { state.level = e.target.value; });
 
   render();
