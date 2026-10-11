@@ -1,0 +1,1016 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Fraction Models Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Baloo+2:wght@500;600;700;800&display=swap">
+<style>
+/* Layout: one working column. The problem reads as an equation at the top; the
+   numbered steps below rebuild it with visual models, in the order a student solves it. */
+:root {
+  --bg: #EDF1F6;
+  --surface: #FFFFFF;
+  --fg: #182131;
+  --muted: #586378;
+  --line: #CBD3DF;
+  --accent: #3446C4;
+  --on-accent: #FFFFFF;
+  --a: #12898B;   --a-ink: #0B6A6C; --on-a: #FFFFFF;
+  --b: #EDA81E;   --b-ink: #9A6400; --on-b: #2A1C00;
+  --empty: #FFFFFF;
+  --piece-line: #2A3446;
+  --gone: #D2493A; --gone-bg: #FBE3DF;
+  --good: #1D8A52; --good-bg: #DDF3E6;
+  --warn: #A35A00; --warn-bg: #FFF0D6;
+  --display: "Baloo 2", "Trebuchet MS", system-ui, sans-serif;
+  --body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --radius: 14px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111722; --surface: #1A2231; --fg: #E6ECF5; --muted: #9AA6BA; --line: #334058;
+    --accent: #8D9BFF; --on-accent: #0E1430;
+    --a: #27B8BA; --a-ink: #55D6D8; --on-a: #062224;
+    --b: #F2B53A; --b-ink: #F5C25E; --on-b: #2A1C00;
+    --empty: #222C3E; --piece-line: #C9D3E3;
+    --gone: #FF7A69; --gone-bg: #3A2226;
+    --good: #5FD495; --good-bg: #173426;
+    --warn: #FFBE5C; --warn-bg: #3A2C14;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111722; --surface: #1A2231; --fg: #E6ECF5; --muted: #9AA6BA; --line: #334058;
+  --accent: #8D9BFF; --on-accent: #0E1430;
+  --a: #27B8BA; --a-ink: #55D6D8; --on-a: #062224;
+  --b: #F2B53A; --b-ink: #F5C25E; --on-b: #2A1C00;
+  --empty: #222C3E; --piece-line: #C9D3E3;
+  --gone: #FF7A69; --gone-bg: #3A2226;
+  --good: #5FD495; --good-bg: #173426;
+  --warn: #FFBE5C; --warn-bg: #3A2C14;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg); color: var(--fg);
+  font: 400 1rem/1.5 var(--body);
+  padding-inline: clamp(16px, 4vw, 40px);
+  padding-block: 20px 56px;
+}
+.wrap { max-width: 1040px; margin: 0 auto; display: grid; gap: 28px; }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; line-height: 1.1; }
+button, select, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+
+/* ---------- header ---------- */
+header { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 16px 24px; }
+.brand h1 { font-size: clamp(1.7rem, 3.4vw, 2.3rem); font-weight: 800; letter-spacing: -0.01em; }
+.brand h1 .slash { color: var(--a-ink); }
+.brand p { margin: 2px 0 0; color: var(--muted); font-size: .95rem; }
+.controls { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; }
+
+.seg { display: inline-flex; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 3px; gap: 2px; }
+.seg button {
+  border: 0; background: transparent; padding: 6px 14px; border-radius: 999px;
+  font-family: var(--display); font-weight: 600; font-size: 1rem; color: var(--muted);
+}
+.seg button[aria-pressed="true"], .seg button[aria-selected="true"] { background: var(--accent); color: var(--on-accent); }
+.seg.tabs button { padding: 7px 18px; font-size: 1.08rem; }
+
+.switch { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; font-size: .95rem; cursor: pointer; user-select: none; }
+.switch input { appearance: none; width: 42px; height: 24px; border-radius: 999px; background: var(--line); position: relative; margin: 0; cursor: pointer; transition: background .15s; }
+.switch input::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: var(--surface); transition: transform .15s; }
+.switch input:checked { background: var(--accent); }
+.switch input:checked::after { transform: translateX(18px); }
+
+/* ---------- problem / equation ---------- */
+.problem {
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 20px clamp(16px, 3vw, 28px); display: grid; gap: 18px;
+}
+.problem-top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px 16px; }
+.eyebrow { font-size: .78rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.std { font-family: var(--display); font-weight: 600; font-size: .85rem; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 1px 10px; margin-left: 8px; letter-spacing: 0; text-transform: none; }
+.gen { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.gen label { font-size: .9rem; color: var(--muted); font-weight: 700; }
+select { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 6px 10px; }
+.btn { border: 0; background: var(--accent); color: var(--on-accent); border-radius: 10px; padding: 8px 16px; font-family: var(--display); font-weight: 700; font-size: 1rem; }
+.btn.ghost { background: transparent; color: var(--accent); border: 2px solid var(--accent); padding: 6px 14px; }
+
+.equation { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 18px; }
+.fcard { display: grid; justify-items: center; gap: 2px; }
+.stepper { display: grid; grid-template-columns: 34px minmax(3.6rem, auto) 34px; gap: 4px; align-items: center; justify-items: center; }
+.stepper button {
+  width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--line); background: var(--bg);
+  font-size: 1.25rem; line-height: 1; font-weight: 700; color: var(--muted); display: grid; place-items: center; padding: 0;
+}
+.stepper button:hover:not(:disabled) { border-color: currentColor; color: var(--fg); }
+.stepper button:disabled { opacity: .35; cursor: default; }
+.stepper output { font-family: var(--display); font-weight: 800; font-size: 2.6rem; line-height: 1; font-variant-numeric: tabular-nums; }
+.fcard .vinculum { width: 64px; height: 5px; border-radius: 3px; background: currentColor; }
+.fcard.a { color: var(--a-ink); }
+.fcard.b { color: var(--b-ink); }
+.fcard .who { font-size: .75rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-top: 4px; }
+
+.op { font-family: var(--display); font-weight: 800; font-size: 2.6rem; color: var(--muted); min-width: 1ch; text-align: center; }
+.op.verdict { color: var(--fg); background: var(--bg); border-radius: 12px; min-width: 64px; padding: 0 10px; }
+.answer-slot { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; min-height: 64px; }
+.result-big { font-family: var(--display); font-weight: 800; font-size: 2.6rem; color: var(--fg); }
+.qmark { font-family: var(--display); font-weight: 800; font-size: 2.6rem; color: var(--muted); border: 2px dashed var(--line); border-radius: 12px; padding: 0 18px; }
+
+.answer-slot input[type=text] {
+  width: 9ch; font-family: var(--display); font-weight: 700; font-size: 1.6rem;
+  border: 2px solid var(--line); border-radius: 12px; padding: 4px 10px; background: var(--bg);
+}
+.symbols { display: inline-flex; gap: 8px; }
+.symbols button {
+  width: 56px; height: 56px; border-radius: 12px; border: 2px solid var(--line); background: var(--bg);
+  font-family: var(--display); font-weight: 800; font-size: 2rem; line-height: 1;
+}
+.symbols button:hover { border-color: var(--accent); }
+
+.feedback { border-radius: 10px; padding: 8px 12px; font-weight: 700; display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; }
+.feedback.good { background: var(--good-bg); color: var(--good); }
+.feedback.bad { background: var(--warn-bg); color: var(--warn); }
+.linkish { background: none; border: 0; color: var(--accent); font-weight: 700; text-decoration: underline; padding: 0; }
+
+/* stacked fraction in text */
+.fr { display: inline-grid; vertical-align: middle; text-align: center; font-family: var(--display); font-weight: 700; line-height: 1.05; margin: 0 .12em; font-variant-numeric: tabular-nums; }
+.fr > span:first-child { border-bottom: 2px solid currentColor; padding: 0 .15em; }
+.fr.a { color: var(--a-ink); } .fr.b { color: var(--b-ink); }
+.mixed.a { color: var(--a-ink); } .mixed.b { color: var(--b-ink); }
+.mixed { display: inline-flex; align-items: center; font-family: var(--display); font-weight: 700; }
+.result-big .fr { font-size: .78em; }
+
+/* ---------- steps ---------- */
+.steps { display: grid; gap: 0; }
+.step { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 0 16px; padding-block: 18px 26px; position: relative; }
+.step::before { content: ""; position: absolute; left: 19px; top: 60px; bottom: 0; width: 2px; background: var(--line); }
+.step:last-child::before { display: none; }
+.num { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-family: var(--display); font-weight: 800; font-size: 1.25rem; background: var(--surface); border: 2px solid var(--line); color: var(--muted); }
+.step-body { display: grid; gap: 12px; min-width: 0; }
+.step h2 { font-size: 1.45rem; font-weight: 700; padding-top: 4px; }
+.caption { margin: 0; color: var(--muted); max-width: 68ch; }
+.caption .eq { color: var(--fg); }
+.eqline { font-size: 1.15rem; color: var(--fg); display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
+
+.mrow { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 12px; align-items: center; }
+.mlabel { font-size: 1.45rem; justify-self: end; }
+.wholes { display: grid; gap: 10px; max-width: calc(var(--cols, 1) * 360px); grid-template-columns: repeat(var(--cols, 1), minmax(0, 1fr)); }
+.wholes.circle { display: flex; flex-wrap: wrap; gap: 12px; }
+.wholes svg { display: block; width: 100%; height: auto; overflow: visible; }
+.wholes.circle svg { width: clamp(96px, 22vw, 150px); }
+
+svg .pc { stroke: none; }
+svg .pc.a { fill: var(--a); }
+svg .pc.b { fill: var(--b); }
+svg .pc.empty { fill: var(--empty); }
+svg .pc.gone { fill: var(--gone-bg); }
+svg .div { stroke: var(--piece-line); stroke-width: 2; }
+svg .div.minor { stroke-width: 1.25; stroke-dasharray: 4 3; opacity: .7; }
+svg .div.major { stroke-width: 3.5; }
+svg .frame { fill: none; stroke: var(--piece-line); stroke-width: 3.5; }
+svg .x { stroke: var(--gone); stroke-width: 3; stroke-linecap: round; fill: none; }
+svg .pl { font-family: var(--display); font-weight: 700; font-size: 15px; text-anchor: middle; dominant-baseline: central; }
+svg .pl.a { fill: var(--on-a); } svg .pl.b { fill: var(--on-b); } svg .pl.empty { fill: var(--muted); }
+
+/* number line */
+.nl { width: 100%; height: auto; display: block; overflow: visible; }
+.nl .axis { stroke: var(--piece-line); stroke-width: 3; stroke-linecap: round; }
+.nl .tick { stroke: var(--piece-line); stroke-width: 1.5; opacity: .65; }
+.nl .tick.major { stroke-width: 3; opacity: 1; }
+.nl .ilabel { fill: var(--muted); font-family: var(--display); font-weight: 700; font-size: 17px; text-anchor: middle; }
+.nl .pt.a { fill: var(--a); } .nl .pt.b { fill: var(--b); }
+.nl .stem.a { stroke: var(--a); } .nl .stem.b { stroke: var(--b); }
+.nl .stem { stroke-width: 2.5; }
+.nl .plabel { font-family: var(--display); font-weight: 800; font-size: 20px; text-anchor: middle; }
+.nl .plabel.a { fill: var(--a-ink); } .nl .plabel.b { fill: var(--b-ink); }
+.nl-wrap { overflow-x: auto; }
+
+.verdict-box { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 18px; display: grid; gap: 6px; }
+.verdict-box .big { font-size: 1.9rem; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-family: var(--display); font-weight: 800; }
+.verdict-box p { margin: 0; color: var(--muted); max-width: 68ch; }
+
+.notice { background: var(--warn-bg); color: var(--warn); border-radius: var(--radius); padding: 12px 16px; font-weight: 700; display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.locked { border: 2px dashed var(--line); border-radius: var(--radius); padding: 16px 18px; color: var(--muted); }
+
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: .9rem; color: var(--muted); }
+.legend i { display: inline-block; width: 14px; height: 14px; border-radius: 3px; vertical-align: -2px; margin-right: 6px; border: 1.5px solid var(--piece-line); }
+
+/* mixed numbers */
+.fcard-wrap { display: flex; align-items: center; gap: 4px; }
+.fcard.whole .stepper output { font-size: 3.4rem; }
+.fcard.whole .who { margin-top: 0; }
+
+/* practice score */
+.score { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 22px; border-top: 1px solid var(--line); padding-top: 14px; }
+.stat { display: grid; gap: 2px; }
+.stat b { font-family: var(--display); font-weight: 800; font-size: 1.6rem; line-height: 1; font-variant-numeric: tabular-nums; }
+.stat span { font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.history { display: grid; gap: 4px; min-width: 0; }
+.dots { display: flex; flex-wrap: wrap; gap: 5px; min-height: 14px; }
+.dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--muted); }
+.dot.first { background: var(--good); border-color: var(--good); }
+.dot.retry { background: var(--b); border-color: var(--b); }
+.dot.shown { background: transparent; }
+.dot-key { font-size: .78rem; color: var(--muted); display: flex; flex-wrap: wrap; gap: 2px 12px; align-items: center; }
+.dot-key .dot { display: inline-block; width: 10px; height: 10px; vertical-align: -1px; margin-right: 4px; }
+.score .linkish { margin-left: auto; }
+
+/* tiles and area models */
+svg .one { fill: var(--empty); stroke: var(--piece-line); stroke-width: 2.5; }
+svg .one-label { fill: var(--fg); font-family: var(--display); font-weight: 800; font-size: 18px; text-anchor: middle; dominant-baseline: central; }
+svg .tile { stroke: var(--piece-line); stroke-width: 2; }
+svg .tile.empty { fill: none; stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: 5 4; }
+svg .group-outline { fill: none; stroke: var(--piece-line); stroke-width: 3.5; }
+.wholes.area { max-width: calc(var(--cols, 1) * 300px); }
+
+[hidden] { display: none !important; }
+
+/* regrouping: the whole that gets broken into pieces */
+.wholes svg.regroup { outline: 3px dashed var(--accent); outline-offset: 4px; border-radius: 4px; }
+.method { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: .9rem; font-weight: 700; color: var(--muted); }
+.method .seg button { font-size: .92rem; padding: 4px 12px; }
+
+/* present mode: one step at a time, bigger type, controls in a bottom bar */
+html.presenting { font-size: 125%; }
+html.presenting body { padding-bottom: 130px; }
+.presenting #score, .presenting #feedback, .presenting .controls .switch { display: none; }
+.presenting .steps .step:last-child, .presenting .steps .verdict-box:last-child, .presenting .steps .notice:last-child { animation: rise .35s ease-out; }
+@keyframes rise { from { opacity: .2; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.presentbar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
+  padding: 12px clamp(16px, 4vw, 40px) calc(12px + env(safe-area-inset-bottom, 0px));
+  background: var(--surface); border-top: 1px solid var(--line);
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px 16px;
+}
+.presentbar .status { font-family: var(--display); font-weight: 700; font-size: 1.1rem; min-width: 8ch; text-align: center; font-variant-numeric: tabular-nums; }
+.presentbar .hint { width: 100%; text-align: center; font-size: .8rem; color: var(--muted); }
+.btn:disabled { opacity: .4; cursor: default; }
+
+@media (max-width: 560px) {
+  .mrow { grid-template-columns: 54px minmax(0, 1fr); gap: 8px; }
+  .mlabel { font-size: 1.15rem; }
+  .wholes[data-cols="3"], .wholes[data-cols="4"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .step { grid-template-columns: 32px minmax(0, 1fr); gap: 0 10px; }
+  .num { width: 32px; height: 32px; font-size: 1.05rem; }
+  .step::before { left: 15px; top: 50px; }
+  .stepper output, .op, .result-big, .qmark { font-size: 2.1rem; }
+  .seg.tabs button { padding: 6px 12px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <h1>Fraction Models <span class="slash">Lab</span></h1>
+      <p>Compare, add and subtract fractions by building them with pieces.</p>
+    </div>
+    <div class="controls">
+      <div class="seg tabs" role="tablist" aria-label="Activity" id="tabs"></div>
+      <div class="seg" role="group" aria-label="Visual model" id="models"></div>
+      <label class="switch" for="practice"><input type="checkbox" id="practice"> Practice mode</label>
+      <button class="btn ghost" data-action="present" id="presentBtn">Present</button>
+    </div>
+  </header>
+
+  <section class="problem" aria-label="Problem">
+    <div class="problem-top">
+      <div class="eyebrow" id="eyebrow"></div>
+      <div class="gen">
+        <label class="switch" for="mixed"><input type="checkbox" id="mixed"> Mixed numbers</label>
+        <label for="level">Level</label>
+        <select id="level">
+          <option value="like">Same denominators</option>
+          <option value="related">Related denominators (like 3 and 6)</option>
+          <option value="unlike" selected>Unlike denominators</option>
+        </select>
+        <button class="btn" data-action="new">New problem</button>
+      </div>
+    </div>
+    <div class="method" id="method" hidden></div>
+    <div class="equation" id="equation"></div>
+    <div id="feedback"></div>
+    <div id="score"></div>
+  </section>
+
+  <div class="legend" id="legend"></div>
+  <section class="steps" id="steps" aria-live="polite"></section>
+</div>
+
+<div class="presentbar" id="presentbar" hidden>
+  <button class="btn ghost" data-action="prev" id="prevBtn">Back</button>
+  <span class="status" id="pstatus"></span>
+  <button class="btn" data-action="next" id="nextBtn">Next step</button>
+  <button class="linkish" data-action="exit-present">Exit</button>
+  <span class="hint">Arrow keys or a presentation clicker also work. Esc exits.</span>
+</div>
+
+<script>
+(() => {
+  // ---------- math ----------
+  const gcd = (a, b) => { a = Math.abs(a); b = Math.abs(b); while (b) [a, b] = [b, a % b]; return a || 1; };
+  const lcm = (a, b) => a / gcd(a, b) * b;
+  const val = f => f.n / f.d;
+  const simplify = (n, d) => { const g = gcd(n, d); return { n: n / g, d: d / g }; };
+  const cmp = (a, b) => Math.sign(a.n * b.d - b.n * a.d);
+  const SYM = { "-1": "<", "0": "=", "1": ">" };
+  const PIECE = { 1: "wholes", 2: "halves", 3: "thirds", 4: "fourths", 5: "fifths", 6: "sixths", 7: "sevenths", 8: "eighths", 9: "ninths", 10: "tenths", 11: "elevenths", 12: "twelfths" };
+  const pieceName = d => PIECE[d] || (d + "ths");
+  const unitLabel = d => d === 1 ? "" : "1/" + d; // whole bars need no label
+  const pcs = (n, d) => `${n} ${n === 1 ? unitName(d) : pieceName(d)}`;
+  const unitName = d => d === 2 ? "half" : pieceName(d).replace(/s$/, "");
+
+  // ---------- html helpers ----------
+  const fr = (n, d, cls = "") => `<span class="fr ${cls}"><span>${n}</span><span>${d}</span></span>`;
+  function nice(n, d, cls = "") {
+    const s = simplify(n, d);
+    if (s.n === 0) return `<span class="mixed">0</span>`;
+    if (s.d === 1) return `<span class="mixed">${s.n}</span>`;
+    if (s.n > s.d) return `<span class="mixed">${Math.floor(s.n / s.d)}${fr(s.n % s.d, s.d, cls)}</span>`;
+    return fr(s.n, s.d, cls);
+  }
+  // as entered (not simplified): 7/4 shows as 1 3/4 when mixed numbers are on
+  function lab(f, cls = "") {
+    if (!state.mixed || f.n < f.d || f.d === 1) return fr(f.n, f.d, cls);
+    const w = Math.floor(f.n / f.d), r = f.n % f.d;
+    return r ? `<span class="mixed ${cls}">${w}${fr(r, f.d, cls)}</span>` : `<span class="mixed">${w}</span>`;
+  }
+  function txt(f) {
+    if (!state.mixed || f.n < f.d || f.d === 1) return `${f.n}/${f.d}`;
+    const w = Math.floor(f.n / f.d), r = f.n % f.d;
+    return r ? `${w} ${r}/${f.d}` : `${w}`;
+  }
+  // equation chain: original, simplified, mixed (dropping duplicates)
+  function chain(n, d) {
+    const parts = [fr(n, d)];
+    const s = simplify(n, d);
+    if (s.d !== d) parts.push(s.d === 1 ? `<span class="mixed">${s.n}</span>` : fr(s.n, s.d));
+    if (s.d !== 1 && s.n > s.d) parts.push(nice(s.n, s.d));
+    return parts.join(" = ");
+  }
+
+  // ---------- state ----------
+  const MODES = {
+    compare:  { label: "Compare",  op: "?", std: "4.NF.A.2", verb: "Compare the fractions" },
+    add:      { label: "Add",      op: "+", std: "4.NF.B.3 · 5.NF.A.1", verb: "Add the fractions" },
+    subtract: { label: "Subtract", op: "−", std: "4.NF.B.3 · 5.NF.A.1", verb: "Subtract the fractions" },
+  };
+  const state = {
+    mode: "compare", model: "bar", practice: false, level: "unlike", mixed: false, subMethod: "regroup",
+    present: false, shown: 1, total: 0,
+    revealed: false, feedback: null, answer: "", tries: 0,
+    score: { correct: 0, total: 0, streak: 0, best: 0, history: [] },
+    pairs: {
+      compare:  [{ n: 2, d: 3 }, { n: 3, d: 4 }],
+      add:      [{ n: 1, d: 2 }, { n: 1, d: 3 }],
+      subtract: [{ n: 5, d: 6 }, { n: 1, d: 4 }],
+    },
+  };
+  const SCORE_KEY = "fraction-models-lab:score";
+  try {
+    const saved = JSON.parse(localStorage.getItem(SCORE_KEY) || "null");
+    if (saved && typeof saved.total === "number") state.score = { ...state.score, ...saved };
+  } catch (e) {}
+  const saveScore = () => { try { localStorage.setItem(SCORE_KEY, JSON.stringify(state.score)); } catch (e) {} };
+  function record(kind) { // kind: first | retry | shown
+    const sc = state.score;
+    sc.total++;
+    if (kind !== "shown") sc.correct++;
+    sc.streak = kind === "first" ? sc.streak + 1 : 0;
+    sc.best = Math.max(sc.best, sc.streak);
+    sc.history = [...sc.history, kind].slice(-20);
+    saveScore();
+  }
+  try {
+    const h = location.hash.slice(1);
+    if (MODES[h]) state.mode = h;
+  } catch (e) {}
+
+  // ---------- models ----------
+  function slicesFor(segs, den) {
+    const flat = [];
+    segs.forEach(s => { for (let i = 0; i < s.n; i++) flat.push(s.cls); });
+    const wholes = Math.max(1, Math.ceil(flat.length / den));
+    const out = [];
+    for (let w = 0; w < wholes; w++) {
+      const sl = [];
+      for (let i = 0; i < den; i++) sl.push(flat[w * den + i] || "empty");
+      out.push(sl);
+    }
+    return out;
+  }
+  const lineClass = (i, group) => group > 1 ? (i % group === 0 ? "div major" : "div minor") : "div";
+  const ariaFor = (sl, den) => `${sl.filter(c => c !== "empty" && !c.includes("gone")).length} of ${den} equal parts shaded`;
+
+  function barSVG(den, sl, group) {
+    const W = 400, H = 64, pw = W / den;
+    let s = `<svg viewBox="-2 -2 ${W + 4} ${H + 4}" role="img" aria-label="${ariaFor(sl, den)}">`;
+    sl.forEach((c, i) => {
+      const x = i * pw;
+      s += `<rect x="${x}" y="0" width="${pw}" height="${H}" class="pc ${c}"/>`;
+      if (c.includes("gone")) {
+        const m = Math.min(pw, H) * 0.28, cx = x + pw / 2, cy = H / 2;
+        s += `<path class="x" d="M${cx - m} ${cy - m}L${cx + m} ${cy + m}M${cx + m} ${cy - m}L${cx - m} ${cy + m}"/>`;
+      } else if (pw >= 34 * labelScale) {
+        s += `<text class="pl ${c}" x="${x + pw / 2}" y="${H / 2}">${unitLabel(den)}</text>`;
+      }
+    });
+    for (let i = 1; i < den; i++) s += `<line class="${lineClass(i, group)}" x1="${i * pw}" x2="${i * pw}" y1="0" y2="${H}"/>`;
+    return s + `<rect class="frame" x="0" y="0" width="${W}" height="${H}" rx="3"/></svg>`;
+  }
+
+  function pieSVG(den, sl, group) {
+    const c = 60, r = 54;
+    const pt = (i, rad = r) => {
+      const a = -Math.PI / 2 + i * 2 * Math.PI / den;
+      return [c + rad * Math.cos(a), c + rad * Math.sin(a)];
+    };
+    let s = `<svg viewBox="0 0 120 120" role="img" aria-label="${ariaFor(sl, den)}">`;
+    sl.forEach((cls, i) => {
+      if (den === 1) s += `<circle cx="${c}" cy="${c}" r="${r}" class="pc ${cls}"/>`;
+      else {
+        const [x0, y0] = pt(i), [x1, y1] = pt(i + 1);
+        s += `<path class="pc ${cls}" d="M${c} ${c}L${x0} ${y0}A${r} ${r} 0 0 1 ${x1} ${y1}Z"/>`;
+      }
+      if (cls.includes("gone")) {
+        const [mx, my] = den === 1 ? [c, c] : pt(i + 0.5, r * 0.62);
+        const m = Math.max(4, Math.min(9, 60 / den));
+        s += `<path class="x" d="M${mx - m} ${my - m}L${mx + m} ${my + m}M${mx + m} ${my - m}L${mx - m} ${my + m}"/>`;
+      }
+    });
+    if (den > 1) for (let i = 0; i < den; i++) {
+      const [x, y] = pt(i);
+      s += `<line class="${lineClass(i, group)}" x1="${c}" y1="${c}" x2="${x}" y2="${y}"/>`;
+    }
+    return s + `<circle class="frame" cx="${c}" cy="${c}" r="${r}"/></svg>`;
+  }
+
+  // Fraction tiles: a "1" strip with the pieces laid out as separate tiles beneath it
+  function tilesSVG(den, sl, group) {
+    const W = 400, pw = W / den, ty = 46, th = 54;
+    let s = `<svg viewBox="-2 -2 ${W + 4} ${ty + th + 6}" role="img" aria-label="${ariaFor(sl, den)}">`;
+    s += `<rect class="one" x="0" y="0" width="${W}" height="36" rx="6"/><text class="one-label" x="${W / 2}" y="18">1</text>`;
+    sl.forEach((c, i) => {
+      const x = i * pw + 2, w = pw - 4;
+      s += `<rect class="tile pc ${c}" x="${x}" y="${ty}" width="${w}" height="${th}" rx="6"/>`;
+      if (c.includes("gone")) {
+        const m = Math.min(w, th) * 0.26, cx = x + w / 2, cy = ty + th / 2;
+        s += `<path class="x" d="M${cx - m} ${cy - m}L${cx + m} ${cy + m}M${cx + m} ${cy - m}L${cx - m} ${cy + m}"/>`;
+      } else if (c !== "empty" && pw >= 34 * labelScale) {
+        s += `<text class="pl ${c}" x="${x + w / 2}" y="${ty + th / 2}">${unitLabel(den)}</text>`;
+      }
+    });
+    if (group > 1) for (let g = 0; g < den / group; g++) {
+      s += `<rect class="group-outline" x="${g * group * pw}" y="${ty - 3}" width="${group * pw}" height="${th + 6}" rx="8"/>`;
+    }
+    return s + `</svg>`;
+  }
+
+  // Area model: the whole is a rectangle cut into a grid. When pieces were re-cut,
+  // each original piece is one column and the new cuts run across it.
+  function areaSVG(den, sl, group) {
+    let rows, cols;
+    if (group > 1) { rows = group; cols = den / group; }
+    else { rows = 1; for (let r = 1; r * r <= den; r++) if (den % r === 0) rows = r; cols = den / rows; }
+    const W = 240, H = 160, cw = W / cols, rh = H / rows;
+    let s = `<svg viewBox="-2 -2 ${W + 4} ${H + 4}" role="img" aria-label="${ariaFor(sl, den)}">`;
+    sl.forEach((c, i) => { // fill column by column
+      const x = Math.floor(i / rows) * cw, y = (i % rows) * rh;
+      s += `<rect class="pc ${c}" x="${x}" y="${y}" width="${cw}" height="${rh}"/>`;
+      if (c.includes("gone")) {
+        const m = Math.min(cw, rh) * 0.26, cx = x + cw / 2, cy = y + rh / 2;
+        s += `<path class="x" d="M${cx - m} ${cy - m}L${cx + m} ${cy + m}M${cx + m} ${cy - m}L${cx - m} ${cy + m}"/>`;
+      } else if (cw >= 36 * labelScale && rh >= 28 * labelScale) {
+        s += `<text class="pl ${c}" x="${x + cw / 2}" y="${y + rh / 2}">${unitLabel(den)}</text>`;
+      }
+    });
+    for (let j = 1; j < cols; j++) s += `<line class="div${group > 1 ? " major" : ""}" x1="${j * cw}" x2="${j * cw}" y1="0" y2="${H}"/>`;
+    for (let r = 1; r < rows; r++) s += `<line class="div${group > 1 ? " minor" : ""}" x1="0" x2="${W}" y1="${r * rh}" y2="${r * rh}"/>`;
+    return s + `<rect class="frame" x="0" y="0" width="${W}" height="${H}" rx="3"/></svg>`;
+  }
+
+  let labelScale = 1; // more wholes per row means smaller drawings, so labels need wider pieces
+  const RENDER = { bar: barSVG, circle: pieSVG, area: areaSVG, tiles: tilesSVG };
+
+  // rows: [{label, den, segs, group}] drawn with aligned wholes.
+  // A row can instead list parts ({den, segs, group, hl}) when its wholes are cut differently.
+  function models(rows) {
+    const built = rows.map(r => ({ ...r, wholes: (r.parts || [r]).flatMap(p =>
+      slicesFor(p.segs, p.den).map(sl => ({ den: p.den, sl, group: p.group || 1, hl: p.hl }))) }));
+    const cols = Math.min(4, Math.max(...built.map(r => r.wholes.length)));
+    labelScale = cols;
+    return built.map(r => {
+      const svgs = r.wholes.map(w => {
+        const svg = RENDER[state.model](w.den, w.sl, w.group);
+        return w.hl ? svg.replace("<svg ", `<svg class="regroup" `) : svg;
+      }).join("");
+      return `<div class="mrow"><div class="mlabel">${r.label}</div><div class="wholes ${state.model}" style="--cols:${cols}" data-cols="${cols}">${svgs}</div></div>`;
+    }).join("");
+  }
+
+  function numberLine(a, b, L) {
+    const max = Math.max(1, Math.ceil(Math.max(val(a), val(b))));
+    const W = 640, x0 = 30, x1 = W - 30, y = 70;
+    const X = v => x0 + (x1 - x0) * v / max;
+    let s = `<svg class="nl" viewBox="0 0 ${W} 150" role="img" aria-label="Number line from 0 to ${max} showing ${txt(a)} and ${txt(b)}">`;
+    s += `<line class="axis" x1="${x0}" x2="${x1}" y1="${y}" y2="${y}"/>`;
+    const steps = max * L;
+    for (let k = 0; k <= steps; k++) {
+      const major = k % L === 0, x = X(k / L);
+      s += `<line class="tick${major ? " major" : ""}" x1="${x}" x2="${x}" y1="${y - (major ? 13 : 7)}" y2="${y + (major ? 13 : 7)}"/>`;
+      if (major) s += `<text class="ilabel" x="${x}" y="${y + 34}">${k / L}</text>`;
+    }
+    const xa = X(val(a)), xb = X(val(b));
+    s += `<line class="stem a" x1="${xa}" x2="${xa}" y1="${y}" y2="${y - 36}"/><circle class="pt a" cx="${xa}" cy="${y}" r="8"/>`;
+    s += `<text class="plabel a" x="${xa}" y="${y - 44}">${txt(a)}</text>`;
+    s += `<line class="stem b" x1="${xb}" x2="${xb}" y1="${y}" y2="${y + 50}"/><circle class="pt b" cx="${xb}" cy="${y}" r="${cmp(a, b) === 0 ? 5 : 8}"/>`;
+    s += `<text class="plabel b" x="${xb}" y="${y + 72}">${txt(b)}</text>`;
+    return `<div class="nl-wrap">${s}</svg></div>`;
+  }
+
+  // ---------- step content ----------
+  function stepHTML(i, title, caption, body) {
+    return `<article class="step"><div class="num" aria-hidden="true">${i}</div><div class="step-body"><h2><span class="sr">Step ${i}: </span>${title}</h2>${caption ? `<p class="caption">${caption}</p>` : ""}${body}</div></article>`;
+  }
+
+  function renameStep(a, b, L) {
+    const ka = L / a.d, kb = L / b.d, A = a.n * ka, B = b.n * kb;
+    let cap;
+    if (a.d === b.d) cap = `Both fractions are already cut into ${pieceName(L)}, so the pieces are the same size.`;
+    else cap = `${L} is the least common multiple of ${a.d} and ${b.d}. Cut every ${unitName(a.d)} into ${ka} and every ${unitName(b.d)} into ${kb}, so all the pieces are ${pieceName(L)}. Thick lines show the original pieces.`;
+    const eq = `<div class="eqline">${fr(a.n, a.d, "a")} = ${fr(`${a.n} × ${ka}`, `${a.d} × ${ka}`, "a")} = ${fr(A, L, "a")}<span style="width:24px"></span>${fr(b.n, b.d, "b")} = ${fr(`${b.n} × ${kb}`, `${b.d} × ${kb}`, "b")} = ${fr(B, L, "b")}</div>`;
+    const body = (a.d === b.d ? "" : eq) + models([
+      { label: fr(A, L, "a"), den: L, group: ka, segs: [{ n: A, cls: "a" }] },
+      { label: fr(B, L, "b"), den: L, group: kb, segs: [{ n: B, cls: "b" }] },
+    ]);
+    return { cap, body, A, B };
+  }
+
+  function compareReason(a, b, L) {
+    const c = cmp(a, b);
+    const word = c < 0 ? "less than" : c > 0 ? "greater than" : "equal to";
+    if (a.d === b.d) return `Both fractions are counted in ${pieceName(a.d)}, the same size piece. ${a.n} pieces is ${c === 0 ? "the same as" : word} ${b.n} pieces.`;
+    if (a.n === b.n && c !== 0) {
+      const big = a.d < b.d ? a : b;
+      return `Both fractions have ${a.n} piece${a.n === 1 ? "" : "s"}. ${pieceName(big.d)[0].toUpperCase() + pieceName(big.d).slice(1)} are bigger pieces than ${pieceName(big === a ? b.d : a.d)}, so ${txt(big)} is greater.`;
+    }
+    const A = a.n * L / a.d, B = b.n * L / b.d;
+    return `With the same size pieces, ${txt(a)} is ${A} ${pieceName(L)} and ${txt(b)} is ${B} ${pieceName(L)}. ${A} is ${word} ${B}.`;
+  }
+
+  function buildSteps() {
+    const [a, b] = state.pairs[state.mode];
+    const L = lcm(a.d, b.d);
+    const hidden = state.practice && !state.revealed && !state.present;
+    const regroup = useRegroup();
+    const lockedNote = msg => `<div class="locked">${msg}</div>`;
+    const out = [];
+
+    const step1Rows = [
+      { label: lab(a, "a"), den: a.d, segs: [{ n: a.n, cls: "a" }] },
+      { label: lab(b, "b"), den: b.d, segs: [{ n: b.n, cls: "b" }] },
+    ];
+    // mixed numbers: rename as fractions greater than 1 before anything else
+    const toImproper = [[a, "a"], [b, "b"]].filter(([f]) => state.mixed && f.n > f.d && f.n % f.d);
+    const mixedEq = toImproper.length && !regroup ? `<p class="caption">Rename each mixed number as a fraction. Every whole is ${toImproper.map(([f]) => `${f.d} ${pieceName(f.d)}`).join(", and ")}.</p><div class="eqline">${toImproper.map(([f, c]) => `${lab(f, c)} = ${fr(`${Math.floor(f.n / f.d)} × ${f.d} + ${f.n % f.d}`, f.d, c)} = ${fr(f.n, f.d, c)}`).join(`<span style="width:24px"></span>`)}</div>` : "";
+    const s1cap = `Each whole is the same size. The denominator tells how many equal pieces the whole is cut into. The numerator tells how many pieces are shaded.`;
+
+    if (state.mode === "compare") {
+      out.push(stepHTML(1, "Build each fraction", s1cap, mixedEq + models(step1Rows)));
+      if (hidden) {
+        out.push(stepHTML(2, "Make a prediction", "", lockedNote("Which shaded part is bigger? Choose &lt;, = or &gt; above. The common pieces and the number line appear after you check.")));
+        return out;
+      }
+      const r = renameStep(a, b, L);
+      out.push(stepHTML(2, "Cut into same-size pieces", r.cap, r.body));
+      out.push(stepHTML(3, "Place both on a number line", `Fractions farther to the right are greater. The space between 0 and 1 is cut into ${pieceName(L)}.`, numberLine(a, b, L)));
+      const c = cmp(a, b);
+      out.push(`<div class="verdict-box"><div class="big">${lab(a, "a")} ${SYM[c]} ${lab(b, "b")}</div><p>${compareReason(a, b, L)}</p></div>`);
+      return out;
+    }
+
+    if (state.mode === "add") {
+      out.push(stepHTML(1, "Build each fraction", s1cap, mixedEq + models(step1Rows)));
+      const r = renameStep(a, b, L);
+      out.push(stepHTML(2, a.d === b.d ? "Check the piece size" : "Rename with a common denominator", r.cap, r.body));
+      if (hidden) {
+        out.push(stepHTML(3, "Join the pieces", "", lockedNote(`Count the ${pieceName(L)} in step 2 and type your sum above. The joined model appears after you check.`)));
+        return out;
+      }
+      const S = r.A + r.B;
+      const cap = `Put the pieces together. The pieces are all ${pieceName(L)}, so add the numerators and keep the denominator.${S > L ? " The sum is more than one whole, so the pieces spill into the next whole." : ""}`;
+      const eq = `<div class="eqline">${fr(r.A, L, "a")} + ${fr(r.B, L, "b")} = ${fr(`${r.A} + ${r.B}`, L)} = ${chain(S, L)}</div>`;
+      out.push(stepHTML(3, "Join the pieces", cap, eq + models([{ label: nice(S, L), den: L, segs: [{ n: r.A, cls: "a" }, { n: r.B, cls: "b" }] }])));
+      return out;
+    }
+
+    // subtract
+    out.push(stepHTML(1, "Build each fraction", s1cap.replace("are shaded.", "are shaded. Start with the first fraction and take away the second."), mixedEq + models(step1Rows)));
+    if (regroup) return out.concat(regroupSteps(a, b, L, hidden));
+    const r = renameStep(a, b, L);
+    out.push(stepHTML(2, a.d === b.d ? "Check the piece size" : "Rename with a common denominator", r.cap, r.body));
+    if (cmp(a, b) < 0) {
+      out.push(`<div class="notice">${txt(a)} is less than ${txt(b)}, so there are not enough pieces to take away. <button class="btn ghost" data-action="swap">Swap the fractions</button></div>`);
+      return out;
+    }
+    if (hidden) {
+      out.push(stepHTML(3, "Take away pieces", "", lockedNote(`Start with ${r.A} ${pieceName(L)}, take away ${r.B}, and type the difference above. The model appears after you check.`)));
+      return out;
+    }
+    const D = r.A - r.B;
+    const cap = `Start with ${r.A} ${pieceName(L)}. Cross out ${r.B} of them. Count what is left.`;
+    const eq = `<div class="eqline">${fr(r.A, L, "a")} − ${fr(r.B, L, "b")} = ${fr(`${r.A} − ${r.B}`, L)} = ${chain(D, L)}</div>`;
+    out.push(stepHTML(3, "Take away pieces", cap, eq + models([{ label: nice(D, L), den: L, segs: [{ n: D, cls: "a" }, { n: r.B, cls: "a gone" }] }])));
+    return out;
+  }
+
+  // Mixed-number subtraction by regrouping: keep the whole numbers, and break a whole
+  // into pieces when the first fraction part is too small to take the second away.
+  function useRegroup() {
+    const [a, b] = state.pairs.subtract;
+    return state.mode === "subtract" && state.mixed && state.subMethod === "regroup" &&
+      cmp(a, b) >= 0 && (a.n >= a.d || b.n >= b.d);
+  }
+  const mixParts = (w, n, d, cls = "") => !w ? fr(n, d, cls)
+    : n ? `<span class="mixed ${cls}">${w}${fr(n, d, cls)}</span>` : `<span class="mixed ${cls}">${w}</span>`;
+  const wholeParts = (n, cls) => Array.from({ length: n }, () => ({ den: 1, segs: [{ n: 1, cls }] }));
+
+  function regroupSteps(a, b, L, hidden) {
+    const out = [];
+    const wa = Math.floor(a.n / a.d), wb = Math.floor(b.n / b.d);
+    const ka = L / a.d, kb = L / b.d, RA = (a.n % a.d) * ka, RB = (b.n % b.d) * kb;
+    const P = pieceName(L);
+    const row = (w, R, cls, k) => [...wholeParts(w, cls), ...(R || !w ? [{ den: L, group: k, segs: [{ n: R, cls }] }] : [])];
+
+    const cap2 = a.d === b.d
+      ? `Keep the whole numbers as they are. The fraction parts are both in ${P}, so the pieces are already the same size.`
+      : `Keep the whole numbers as they are. Rename only the fraction parts so both use ${P}: cut every ${unitName(a.d)} into ${ka} and every ${unitName(b.d)} into ${kb}.`;
+    const eq2 = a.d === b.d ? "" : `<div class="eqline">${lab(a, "a")} = ${mixParts(wa, RA, L, "a")}<span style="width:24px"></span>${lab(b, "b")} = ${mixParts(wb, RB, L, "b")}</div>`;
+    out.push(stepHTML(2, a.d === b.d ? "Check the piece size" : "Rename the fraction parts", cap2, eq2 + models([
+      { label: mixParts(wa, RA, L, "a"), parts: row(wa, RA, "a", ka) },
+      { label: mixParts(wb, RB, L, "b"), parts: row(wb, RB, "b", kb) },
+    ])));
+
+    const need = RA < RB;
+    const wa2 = need ? wa - 1 : wa, RA2 = need ? RA + L : RA;
+    if (need) {
+      const cap3 = `You can't take ${pcs(RB, L)} away from ${pcs(RA, L)}. Break one whole into ${L} ${P}. Now there ${RA2 === 1 ? "is" : "are"} ${pcs(RA2, L)} and ${wa2} whole${wa2 === 1 ? "" : "s"}.`;
+      const eq3 = `<div class="eqline">${mixParts(wa, RA, L, "a")} = ${wa2 ? `${wa2} + ` : ""}${fr(L, L, "a")}${RA ? ` + ${fr(RA, L, "a")}` : ""} = ${mixParts(wa2, RA2, L, "a")}</div>`;
+      const parts = [...wholeParts(wa2, "a"), { den: L, segs: [{ n: L, cls: "a" }], hl: true }, ...(RA ? [{ den: L, segs: [{ n: RA, cls: "a" }] }] : [])];
+      out.push(stepHTML(3, "Regroup a whole", cap3 + " The dashed outline shows the whole you broke apart.", eq3 + models([{ label: mixParts(wa2, RA2, L, "a"), parts }])));
+    } else {
+      out.push(stepHTML(3, "Check if you need to regroup", `There ${RA === 1 ? "is" : "are"} ${pcs(RA, L)}, which is enough to take away ${RB}. No regrouping is needed.`, ""));
+    }
+
+    if (hidden) {
+      out.push(stepHTML(4, "Subtract wholes and pieces", "", `<div class="locked">Subtract the whole numbers, then the ${P}, and type the difference above. The model appears after you check.</div>`));
+      return out;
+    }
+    const W = wa2 - wb, D = RA2 - RB;
+    const cap4 = `Take away ${wb} whole${wb === 1 ? "" : "s"} and ${pcs(RB, L)}. Subtract the whole numbers, then subtract the fraction parts.`;
+    const eq4 = `<div class="eqline">(${wa2} − ${wb}) + (${fr(RA2, L)} − ${fr(RB, L)}) = ${W} + ${fr(D, L)} = ${nice(W * L + D, L)}</div>`;
+    const parts = [...wholeParts(W, "a"), ...wholeParts(wb, "a gone"), ...(RA2 ? [{ den: L, segs: [{ n: D, cls: "a" }, { n: RB, cls: "a gone" }] }] : [])];
+    out.push(stepHTML(4, "Subtract wholes and pieces", cap4, eq4 + models([{ label: nice(W * L + D, L), parts }])));
+    return out;
+  }
+
+  // Name the likely mistake behind a wrong sum or difference, or return null.
+  function diagnose(g) {
+    const [a, b] = state.pairs[state.mode];
+    const add = state.mode === "add";
+    const L = lcm(a.d, b.d), A = a.n * L / a.d, B = b.n * L / b.d;
+    const op = (x, y) => add ? x + y : x - y;
+    const did = add ? "added" : "subtracted", verb = add ? "add" : "subtract";
+    const P = pieceName(L);
+    // Check for the exact fraction a mistake produces first, then for an equivalent one.
+    for (const exact of [true, false]) {
+      const is = (n, d) => d > 0 && n >= 0 && (exact ? g.n === n && g.d === d : g.n * d === n * g.d);
+      const why = mistakes(is);
+      if (why) return why;
+    }
+    return null;
+
+    function mistakes(is) {
+
+    if (is(op(a.n, b.n), op(a.d, b.d))) return a.d === b.d
+      ? `It looks like you ${did} the denominators too. ${pieceName(a.d)[0].toUpperCase() + pieceName(a.d).slice(1)} ${add ? "plus" : "minus"} ${pieceName(a.d)} are still ${pieceName(a.d)}, so the denominator stays ${a.d}. Only ${verb} the numerators.`
+      : `It looks like you ${did} the numerators and the denominators. The denominator names the size of the pieces, so it is not ${did}. Rename both fractions as ${P}, then ${verb} only the numerators.`;
+    if (state.mixed) {
+      const wa = Math.floor(a.n / a.d), wb = Math.floor(b.n / b.d);
+      const RA = (a.n % a.d) * L / a.d, RB = (b.n % b.d) * L / b.d;
+      if (!add && RA < RB && is((wa - wb) * L + (RB - RA), L))
+        return `You subtracted the smaller fraction part from the bigger one (${RB} − ${RA}). The first number has only ${pcs(RA, L)}, so regroup: break one whole into ${L} ${P}, then subtract.`;
+      if (!add && RA < RB && is((wa - wb) * L + RA + L - RB, L))
+        return `You broke a whole into ${P}, which is right. Remember to take that whole away from the whole number too: ${wa} becomes ${wa - 1}.`;
+      if (wa + wb > 0 && op(RA, RB) >= 0 && is(op(RA, RB), L))
+        return `Your fraction part is right. Don't forget the whole numbers: ${wa} ${add ? "+" : "−"} ${wb}.`;
+    }
+    if (a.d !== b.d && (is(op(a.n, b.n), L) || is(op(a.n, b.n), a.d * b.d)))
+      return `You changed the denominators but not the numerators. Whatever you multiply a denominator by, multiply its numerator by the same number. Step 2 shows how.`;
+    if (a.d !== b.d && (is(op(a.n, b.n), a.d) || is(op(a.n, b.n), b.d)))
+      return `You ${did} the numerators, but ${pieceName(a.d)} and ${pieceName(b.d)} are different sizes. Rename both as ${P} first, like in step 2.`;
+    if ((a.d !== L && is(op(a.n, B), L)) || (b.d !== L && is(op(A, b.n), L)))
+      return `You renamed one fraction but not the other. Both need to be in ${P}: ${txt(a)} = ${A}/${L} and ${txt(b)} = ${B}/${L}.`;
+    if (is(op(A, B) + 1, L) || is(op(A, B) - 1, L))
+      return `Very close! You are off by one ${unitName(L)}. Recount the ${P} in step 2.`;
+    return null;
+    }
+  }
+
+  // Name the likely mistake behind a wrong comparison symbol.
+  function diagnoseCompare(sym) {
+    const [a, b] = state.pairs.compare;
+    const L = lcm(a.d, b.d);
+    const by = x => x < 0 ? "<" : x > 0 ? ">" : "=";
+    const ma = a.d - a.n, mb = b.d - b.n;
+    if (sym === "=" && a.d !== b.d && ma === mb && ma > 0)
+      return `Both fractions are ${ma} piece${ma === 1 ? "" : "s"} away from a whole, but the missing pieces are different sizes. ${fr(ma, a.d, "a")} and ${fr(mb, b.d, "b")} are not equal, so the fractions are not equal either.`;
+    if (a.d !== b.d && sym === by(a.d - b.d))
+      return `It looks like you compared the denominators. A bigger denominator cuts the whole into more pieces, so each piece is smaller: 1/${Math.max(a.d, b.d)} is less than 1/${Math.min(a.d, b.d)}.`;
+    if (a.d !== b.d && a.n !== b.n && sym === by(a.n - b.n))
+      return `It looks like you compared only the numerators. The numerators count pieces, but ${pieceName(a.d)} and ${pieceName(b.d)} are different sizes. Try renaming both as ${pieceName(L)}.`;
+    return `Not quite. Look at how much of each whole is shaded.`;
+  }
+
+  // ---------- equation (hero) ----------
+  function stepperHTML(idx, part, value, min, max) {
+    const name = `${idx === 0 ? "first" : "second"} fraction ${{ w: "whole number", n: "numerator", d: "denominator" }[part]}`;
+    return `<div class="stepper">
+      <button data-action="step" data-i="${idx}" data-p="${part}" data-delta="-1" aria-label="Decrease ${name}" ${value <= min ? "disabled" : ""}>−</button>
+      <output aria-label="${name}">${value}</output>
+      <button data-action="step" data-i="${idx}" data-p="${part}" data-delta="1" aria-label="Increase ${name}" ${value >= max ? "disabled" : ""}>+</button>
+    </div>`;
+  }
+  function fcard(f, i) {
+    const cls = i ? "b" : "a";
+    if (!state.mixed) return `<div class="fcard ${cls}">${stepperHTML(i, "n", f.n, 0, f.d * 2)}<div class="vinculum"></div>${stepperHTML(i, "d", f.d, 1, 12)}</div>`;
+    const w = Math.floor(f.n / f.d), r = f.n % f.d;
+    return `<div class="fcard-wrap"><div class="fcard whole ${cls}">${stepperHTML(i, "w", w, 0, MAX_WHOLE)}<div class="who">whole</div></div>` +
+      `<div class="fcard ${cls}">${stepperHTML(i, "n", r, 0, f.d - 1)}<div class="vinculum"></div>${stepperHTML(i, "d", f.d, 1, 12)}</div></div>`;
+  }
+  const MAX_WHOLE = 2;
+
+  function correctResult() {
+    const [a, b] = state.pairs[state.mode];
+    const L = lcm(a.d, b.d), A = a.n * L / a.d, B = b.n * L / b.d;
+    return state.mode === "add" ? { n: A + B, d: L } : { n: A - B, d: L };
+  }
+
+  function renderEquation() {
+    const [a, b] = state.pairs[state.mode];
+    const hidden = state.practice && !state.revealed && !state.present;
+    const presentHide = state.present && state.shown < state.total;
+    let html = fcard(a, 0);
+    if (state.mode === "compare") {
+      if (presentHide) html += `<div class="op verdict" aria-label="comparison not shown yet">?</div>` + fcard(b, 1);
+      else if (hidden) {
+        html += `<div class="symbols" role="group" aria-label="Choose a comparison symbol">${["<", "=", ">"].map(s => `<button data-action="pick" data-sym="${s}" aria-label="${s === "<" ? "less than" : s === ">" ? "greater than" : "equal to"}">${s.replace("<", "&lt;").replace(">", "&gt;")}</button>`).join("")}</div>`;
+        html += fcard(b, 1);
+      } else {
+        html += `<div class="op verdict" aria-label="comparison">${SYM[cmp(a, b)].replace("<", "&lt;").replace(">", "&gt;")}</div>` + fcard(b, 1);
+      }
+    } else {
+      html += `<div class="op">${MODES[state.mode].op}</div>` + fcard(b, 1) + `<div class="op">=</div>`;
+      const negative = state.mode === "subtract" && cmp(a, b) < 0;
+      if (negative || presentHide) html += `<div class="answer-slot"><span class="qmark">?</span></div>`;
+      else if (hidden) {
+        html += `<form class="answer-slot" id="ansform" autocomplete="off">
+          <input type="text" id="answer" inputmode="text" placeholder="?" aria-label="Your answer, like 5/6 or 1 1/6" value="${state.answer.replace(/"/g, "")}">
+          <button class="btn" type="submit">Check</button>
+        </form>`;
+      } else {
+        const r = correctResult();
+        html += `<div class="answer-slot"><span class="result-big">${nice(r.n, r.d)}</span></div>`;
+      }
+    }
+    document.getElementById("equation").innerHTML = html;
+
+    const fb = state.feedback;
+    let fbh = "";
+    if (state.practice) {
+      const next = state.revealed ? ` <button class="btn" data-action="new">Next problem</button>` : "";
+      if (fb) fbh = `<div class="feedback ${fb.ok ? "good" : "bad"}">${fb.msg}${!fb.ok && !state.revealed ? ` <button class="linkish" data-action="reveal">Show me the answer</button>` : ""}${next}</div>`;
+      else if (state.revealed) fbh = `<div class="caption">Here is the answer, worked out below.${next}</div>`;
+      else if (!state.revealed && !(state.mode === "subtract" && cmp(a, b) < 0)) fbh = `<div class="caption">${state.mode === "compare" ? "Look at the models, then choose a symbol." : "Type a fraction like 5/6, or a mixed number like 1 1/6."} <button class="linkish" data-action="reveal">Show me</button></div>`;
+    }
+    document.getElementById("feedback").innerHTML = fbh;
+
+    const sc = state.score;
+    const label = { first: "Correct on the first try", retry: "Correct after a retry", shown: "Answer shown" };
+    document.getElementById("score").innerHTML = !state.practice ? "" : `<div class="score" aria-label="Practice score">
+      <div class="stat"><b>${sc.correct} / ${sc.total}</b><span>Correct</span></div>
+      <div class="stat"><b>${sc.streak}</b><span>First-try streak</span></div>
+      <div class="stat"><b>${sc.best}</b><span>Best streak</span></div>
+      <div class="history">
+        <div class="dots" role="img" aria-label="Last ${sc.history.length} problems">${sc.history.map(k => `<i class="dot ${k}" title="${label[k]}"></i>`).join("") || `<span class="dot-key">No problems finished yet</span>`}</div>
+        <div class="dot-key"><span><i class="dot first"></i>first try</span><span><i class="dot retry"></i>after a retry</span><span><i class="dot shown"></i>answer shown</span></div>
+      </div>
+      <button class="linkish" data-action="reset-score">Reset score</button>
+    </div>`;
+  }
+
+  // ---------- chrome ----------
+  function renderChrome() {
+    document.getElementById("tabs").innerHTML = Object.entries(MODES).map(([k, m]) =>
+      `<button role="tab" aria-selected="${k === state.mode}" data-action="mode" data-mode="${k}">${m.label}</button>`).join("");
+    document.getElementById("models").innerHTML = [["bar", "Bars"], ["circle", "Circles"], ["area", "Area"], ["tiles", "Tiles"]].map(([k, l]) =>
+      `<button aria-pressed="${k === state.model}" data-action="model" data-model="${k}">${l}</button>`).join("");
+    document.getElementById("eyebrow").innerHTML = `${MODES[state.mode].verb}<span class="std">${MODES[state.mode].std}</span>`;
+    document.getElementById("practice").checked = state.practice;
+    document.getElementById("mixed").checked = state.mixed;
+    const method = document.getElementById("method");
+    method.hidden = !(state.mode === "subtract" && state.mixed);
+    method.innerHTML = `<span>Subtract mixed numbers by</span><div class="seg" role="group" aria-label="Subtraction method">${[["regroup", "Regrouping"], ["improper", "Renaming as fractions"]].map(([k, l]) =>
+      `<button aria-pressed="${k === state.subMethod}" data-action="method" data-method="${k}">${l}</button>`).join("")}</div>`;
+    document.getElementById("presentBtn").textContent = state.present ? "Exit presenting" : "Present";
+    document.documentElement.classList.toggle("presenting", state.present);
+    document.getElementById("level").value = state.level;
+    const leg = [`<span><i style="background:var(--a)"></i>First fraction</span>`, `<span><i style="background:var(--b)"></i>Second fraction</span>`];
+    if (state.mode === "subtract") leg.push(`<span><i style="background:var(--gone-bg);border-color:var(--gone)"></i>Taken away</span>`);
+    leg.push(`<span><i style="background:var(--empty)"></i>Not shaded</span>`);
+    document.getElementById("legend").innerHTML = leg.join("");
+  }
+
+  function render() {
+    renderChrome();
+    const steps = buildSteps();
+    state.total = steps.length;
+    state.shown = Math.min(Math.max(1, state.shown), state.total);
+    renderEquation();
+    document.getElementById("steps").innerHTML = (state.present ? steps.slice(0, state.shown) : steps).join("");
+    const bar = document.getElementById("presentbar");
+    bar.hidden = !state.present;
+    if (state.present) {
+      document.getElementById("pstatus").textContent = `Step ${state.shown} of ${state.total}`;
+      document.getElementById("prevBtn").disabled = state.shown <= 1;
+      const next = document.getElementById("nextBtn");
+      next.disabled = state.shown >= state.total;
+      next.textContent = state.shown === state.total - 1 ? "Show answer" : "Next step";
+    }
+  }
+
+  function presentStep(delta) {
+    const before = state.shown;
+    state.shown = Math.min(state.total, Math.max(1, state.shown + delta));
+    if (state.shown === before) return;
+    render();
+    if (delta > 0) {
+      const items = document.getElementById("steps").children;
+      const last = items[items.length - 1];
+      const reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (last) last.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "nearest" });
+    }
+  }
+  function setPresent(on) {
+    state.present = on; state.shown = 1;
+    try {
+      if (on && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {});
+      if (!on && document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    } catch (e) {}
+    render();
+    window.scrollTo(0, 0);
+  }
+
+  function resetAttempt() { state.revealed = false; state.feedback = null; state.answer = ""; state.tries = 0; state.shown = 1; }
+
+  // ---------- problems ----------
+  const DENS = [2, 3, 4, 5, 6, 8, 10, 12];
+  const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+  function newProblem() {
+    for (let t = 0; t < 200; t++) {
+      const d1 = pick(DENS);
+      let opts;
+      if (state.level === "like") opts = [d1];
+      else if (state.level === "related") opts = DENS.filter(x => x !== d1 && (x % d1 === 0 || d1 % x === 0));
+      else opts = DENS.filter(x => x % d1 !== 0 && d1 % x !== 0);
+      const d2 = pick(opts);
+      if (lcm(d1, d2) > 24) continue; // keep the shared pieces countable
+      let a = { n: 1 + Math.floor(Math.random() * (d1 - 1)), d: d1 };
+      let b = { n: 1 + Math.floor(Math.random() * (d2 - 1)), d: d2 };
+      if (state.mixed) { // 1 or 2 wholes on the first, 0 to 2 on the second
+        a.n += (1 + Math.floor(Math.random() * MAX_WHOLE)) * a.d;
+        b.n += Math.floor(Math.random() * (MAX_WHOLE + 1)) * b.d;
+      }
+      if (a.n === b.n && a.d === b.d) continue;
+      if (state.mode === "subtract") {
+        if (cmp(a, b) === 0) continue;
+        if (cmp(a, b) < 0) [a, b] = [b, a];
+      }
+      if (state.mode === "compare" && cmp(a, b) === 0 && Math.random() < 0.7) continue;
+      const cur = state.pairs[state.mode];
+      if (a.n === cur[0].n && a.d === cur[0].d && b.n === cur[1].n && b.d === cur[1].d) continue;
+      state.pairs[state.mode] = [a, b];
+      break;
+    }
+    resetAttempt();
+    render();
+  }
+
+  function parseAnswer(t) {
+    t = t.trim().replace(/\s+/g, " ");
+    let m = t.match(/^(\d+) (\d+)\s?\/\s?(\d+)$/);
+    if (m && +m[3] > 0) return { n: +m[1] * +m[3] + +m[2], d: +m[3] };
+    m = t.match(/^(\d+)\s?\/\s?(\d+)$/);
+    if (m && +m[2] > 0) return { n: +m[1], d: +m[2] };
+    if (/^\d+$/.test(t)) return { n: +t, d: 1 };
+    return null;
+  }
+
+  function checkAnswer(text) {
+    state.answer = text;
+    const guess = parseAnswer(text);
+    if (!guess) { state.feedback = { ok: false, msg: "Write your answer as a fraction like 5/6 or a mixed number like 1 1/6." }; return render(); }
+    const r = correctResult();
+    if (cmp(guess, r) === 0) {
+      const s = simplify(r.n, r.d);
+      const simplest = gcd(guess.n, guess.d) === 1;
+      record(state.tries ? "retry" : "first");
+      state.revealed = true;
+      state.feedback = { ok: true, msg: simplest ? "Correct! The models below show why." : `Correct! In simplest form that is ${s.d === 1 ? s.n : s.n + "/" + s.d}${s.n > s.d && s.d !== 1 ? `, or ${Math.floor(s.n / s.d)} ${s.n % s.d}/${s.d}` : ""}.` };
+    } else {
+      const L = lcm(...state.pairs[state.mode].map(f => f.d));
+      state.tries++;
+      const why = diagnose(guess);
+      state.feedback = { ok: false, msg: why ? `Not yet. ${why}` : `Not yet. Use the ${pieceName(L)} in step 2: ${state.mode === "add" ? "how many pieces are there in all?" : "how many pieces are left?"}` };
+    }
+    render();
+    const inp = document.getElementById("answer");
+    if (inp) { inp.focus(); inp.select(); }
+  }
+
+  // ---------- events ----------
+  document.addEventListener("click", e => {
+    const el = e.target.closest("[data-action]");
+    if (!el) return;
+    const act = el.dataset.action;
+    if (act === "mode") {
+      state.mode = el.dataset.mode; resetAttempt();
+      try { history.replaceState(null, "", "#" + state.mode); } catch (err) {}
+      render();
+    } else if (act === "model") { state.model = el.dataset.model; render(); }
+    else if (act === "step") {
+      const f = state.pairs[state.mode][+el.dataset.i];
+      const delta = +el.dataset.delta;
+      const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+      const w = Math.floor(f.n / f.d), r = f.n % f.d;
+      if (state.mixed) { // edit the whole, numerator and denominator of a mixed number separately
+        if (el.dataset.p === "w") f.n = clamp(w + delta, 0, MAX_WHOLE) * f.d + r;
+        else if (el.dataset.p === "n") f.n = w * f.d + clamp(r + delta, 0, f.d - 1);
+        else { f.d = clamp(f.d + delta, 1, 12); f.n = w * f.d + Math.min(r, f.d - 1); }
+      } else if (el.dataset.p === "d") { f.d = clamp(f.d + delta, 1, 12); f.n = Math.min(f.n, f.d * 2); }
+      else f.n = clamp(f.n + delta, 0, f.d * 2);
+      resetAttempt(); render();
+      const again = document.querySelector(`[data-action="step"][data-i="${el.dataset.i}"][data-p="${el.dataset.p}"][data-delta="${el.dataset.delta}"]`);
+      if (again && !again.disabled) again.focus();
+    }
+    else if (act === "new") newProblem();
+    else if (act === "present") setPresent(!state.present);
+    else if (act === "exit-present") setPresent(false);
+    else if (act === "next") presentStep(1);
+    else if (act === "prev") presentStep(-1);
+    else if (act === "method") { state.subMethod = el.dataset.method; resetAttempt(); render(); }
+    else if (act === "reset-score") { state.score = { correct: 0, total: 0, streak: 0, best: 0, history: [] }; saveScore(); render(); }
+    else if (act === "swap") { const p = state.pairs[state.mode]; state.pairs[state.mode] = [p[1], p[0]]; resetAttempt(); render(); }
+    else if (act === "reveal") { if (!state.revealed) record("shown"); state.revealed = true; if (!state.feedback || !state.feedback.ok) state.feedback = null; render(); }
+    else if (act === "pick") {
+      const [a, b] = state.pairs[state.mode];
+      const right = SYM[cmp(a, b)];
+      if (el.dataset.sym === right) { record(state.tries ? "retry" : "first"); state.revealed = true; state.feedback = { ok: true, msg: "Correct! Steps 2 and 3 show why." }; }
+      else state.tries++, state.feedback = { ok: false, msg: diagnoseCompare(el.dataset.sym) };
+      render();
+    }
+  });
+  document.addEventListener("keydown", e => {
+    if (!state.present || e.target.closest("input, select, textarea")) return;
+    if (["ArrowRight", "ArrowDown", "PageDown"].includes(e.key)) { e.preventDefault(); presentStep(1); }
+    else if (["ArrowLeft", "ArrowUp", "PageUp"].includes(e.key)) { e.preventDefault(); presentStep(-1); }
+    else if (e.key === "Escape") setPresent(false);
+  });
+  document.addEventListener("submit", e => {
+    if (e.target.id !== "ansform") return;
+    e.preventDefault();
+    checkAnswer(document.getElementById("answer").value);
+  });
+  document.getElementById("practice").addEventListener("change", e => { state.practice = e.target.checked; resetAttempt(); render(); });
+  document.getElementById("mixed").addEventListener("change", e => {
+    state.mixed = e.target.checked;
+    if (!state.mixed) Object.values(state.pairs).flat().forEach(f => { f.n = Math.min(f.n, f.d * 2); });
+    resetAttempt(); render();
+  });
+  document.getElementById("level").addEventListener("change", e => { state.level = e.target.value; });
+
+  render();
+})();
+</script>
+</body>
+</html>
